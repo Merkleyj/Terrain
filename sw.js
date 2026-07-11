@@ -5,7 +5,7 @@
    - Other GETs (fonts, favicons, etc.): cache-first, then network, and cache
      the response for next time so the app looks right offline after first run.
    Bump CACHE when you change terrain.html so clients pick up the new version. */
-const CACHE = 'terrain-v1';
+const CACHE = 'terrain-v2';
 const APP_SHELL = 'terrain.html';
 const ASSETS = [
   APP_SHELL,
@@ -35,6 +35,13 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
+
+  // Never intercept Firebase / Google API traffic — it needs a live network
+  // connection (auth, Firestore sync). Let the browser handle it directly.
+  const url = new URL(req.url);
+  if (/(^|\.)googleapis\.com$/.test(url.hostname) ||
+      /(^|\.)firebaseio\.com$/.test(url.hostname) ||
+      url.hostname === 'apis.google.com') return;
 
   // Navigations (opening/refreshing the app): try network, fall back to cache.
   if (req.mode === 'navigate') {
