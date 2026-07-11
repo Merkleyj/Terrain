@@ -86,6 +86,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
 .sect-head p{margin:0;font-size:13.5px;color:var(--ink-soft)}
 .sect-head .actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .hab-grid{grid-template-columns:1.4fr 1fr}
+.split{grid-template-columns:1.4fr 1fr}
 
 /* Bars */
 .bar{height:8px;border-radius:20px;background:var(--track);overflow:hidden}
@@ -368,8 +369,12 @@ body.mobmore-lock{overflow:hidden}
   .sect-head p{display:none}
   .sect-head .actions{margin-left:0}
   .hab-grid{grid-template-columns:1fr}
+  .split{grid-template-columns:1fr}
   .hab-left{order:2}
   .hab-right{order:1}
+  /* keep native date/time inputs from overflowing their box on iOS */
+  input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%}
+  input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left;margin:0}
   .mobnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(252,250,245,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));gap:2px}
   .mob-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;padding:7px 3px;border:none;background:none;border-radius:10px;color:var(--ink-faint);font-size:10px;font-weight:600}
   .mob-item svg{width:22px;height:22px}
@@ -1652,7 +1657,7 @@ function vWorkouts(){
     const vol=(l.sets||[]).reduce((a,x)=>a+x.w*x.r,0);
     return '<button class="day-ev" data-act="wlog-view" data-id="'+l.id+'"><span class="cal-dot" style="background:var(--plum)"></span><span class="day-ev-txt">'+esc(l.workoutName)+' <span class="faint">\u00b7 '+fmtD(l.date)+'</span></span><span class="mono faint" style="font-size:11.5px">'+(l.sets||[]).length+' sets \u00b7 '+vol.toLocaleString()+'</span></button>';
   }).join(''):emptyBox('No sessions logged yet.','dumbbell');
-  return head+'<div class="grid g2" style="grid-template-columns:1.4fr 1fr"><div>'+cards+'</div>'+
+  return head+'<div class="grid g2 split"><div>'+cards+'</div>'+
     '<div><div class="card"><div class="card-h"><h3>Scheduled</h3></div>'+schedHtml+'</div>'+
     '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Recent sessions</h3></div>'+histHtml+'</div></div></div>';
 }
@@ -1742,7 +1747,7 @@ function vRunning(){
   }else{
     planHtml='<div class="card"><div class="card-h"><h3>Training plan</h3></div><p class="muted" style="font-size:13px;margin:0 0 12px">Training for a race? Generate a week-by-week schedule \u2014 easy runs, mid-week runs and building long runs with a taper \u2014 placed straight on your calendar.</p><button class="btn primary sm" data-act="plan-build">'+svg(I.route)+'Build training plan</button><p class="faint" style="font-size:11.5px;margin:12px 0 0">A general template to adapt to your own fitness \u2014 not coaching advice.</p></div>';
   }
-  return head+metrics+'<div class="grid g2" style="grid-template-columns:1.4fr 1fr"><div>'+add+'<div class="card"><div class="card-h"><h3>Run log</h3></div>'+list+'</div></div>'+
+  return head+metrics+'<div class="grid g2 split"><div>'+add+'<div class="card"><div class="card-h"><h3>Run log</h3></div>'+list+'</div></div>'+
     '<div>'+chart+planHtml+'</div></div>';
 }
 
@@ -1993,7 +1998,7 @@ function vSleep(){
   }
   const chart='<div class="card"><div class="card-h"><h3>Last 14 nights</h3><span class="spacer faint" style="font-size:11.5px">color = quality \u00b7 height = duration</span></div><div class="wkchart">'+bars+'</div><div class="wklabels">'+lbls+'</div></div>';
   const rows=log.length?log.slice(0,14).map(x=>'<div class="row" style="padding:9px 2px"><div style="width:8px;height:8px;border-radius:50%;background:var(--plum);flex:none"></div><div class="txt"><div class="t" style="font-size:13.5px">'+fmtDur(x.dur)+' <span class="faint">\u00b7 '+esc(x.bed)+' \u2192 '+esc(x.wake)+'</span></div><div class="sub">'+fmtDL(x.date)+(x.note?' \u00b7 '+esc(x.note):'')+'</div></div><span style="color:var(--wheat);font-size:12px;letter-spacing:1px">'+'\u2605'.repeat(x.q||0)+'</span><button class="icon-btn del" data-act="sleep-del" data-id="'+x.id+'">'+svg(I.trash)+'</button></div>').join(''):emptyBox('No nights logged yet.','moon');
-  return head+metrics+'<div class="grid g2" style="grid-template-columns:1.4fr 1fr"><div>'+form+'<div class="card"><div class="card-h"><h3>Recent nights</h3></div>'+rows+'</div></div><div>'+chart+'</div></div>';
+  return head+metrics+'<div class="grid g2 split"><div>'+form+'<div class="card"><div class="card-h"><h3>Recent nights</h3></div>'+rows+'</div></div><div>'+chart+'</div></div>';
 }
 
 /* ---------- VIEW: VISION & IDENTITY ---------- */
