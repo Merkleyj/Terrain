@@ -85,6 +85,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
 .sect-head h2{font-family:var(--serif);font-weight:600;font-size:25px;margin:0 0 3px;letter-spacing:-.02em}
 .sect-head p{margin:0;font-size:13.5px;color:var(--ink-soft)}
 .sect-head .actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hab-grid{grid-template-columns:1.4fr 1fr}
 
 /* Bars */
 .bar{height:8px;border-radius:20px;background:var(--track);overflow:hidden}
@@ -350,9 +351,19 @@ body.mobmore-lock{overflow:hidden}
 @media(max-width:860px){
   .app{grid-template-columns:1fr}
   .sidebar{display:none}
-  .topbar{padding:14px 16px}
-  .view{padding:18px 16px 96px}
+  .topbar{padding:10px 16px;gap:10px}
+  .topbar h1{font-size:18px}
+  .topbar .date{font-size:11px}
+  .topbar .date b{font-size:12px}
+  .view{padding:16px 16px 96px}
   .g2,.g3,.g4{grid-template-columns:1fr}
+  /* one header on mobile: keep the sticky topbar, drop the redundant in-page title/description */
+  .sect-head{margin-bottom:12px;gap:10px}
+  .sect-head .lead{display:none}
+  .sect-head .actions{margin-left:0}
+  .hab-grid{grid-template-columns:1fr}
+  .hab-left{order:2}
+  .hab-right{order:1}
   .mobnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(252,250,245,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));gap:2px}
   .mob-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;padding:7px 3px;border:none;background:none;border-radius:10px;color:var(--ink-faint);font-size:10px;font-weight:600}
   .mob-item svg{width:22px;height:22px}
@@ -1440,7 +1451,7 @@ function vHabits(){
     '<div style="position:relative;width:128px;height:128px;margin:4px auto 0">'+ring+'<div style="position:absolute;inset:0;display:grid;place-items:center"><div><div style="font-family:var(--serif);font-size:32px;font-weight:600;line-height:1">'+st.pct+'%</div></div></div></div>'+
     '<div style="display:flex;justify-content:center;gap:26px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)"><div class="metric"><span class="n" style="color:var(--clay);display:flex;align-items:center;gap:4px;justify-content:center">'+svg(I.flame,'')+streak+'</span><span class="l">Streak</span></div><div class="metric"><span class="n">'+st.done+'</span><span class="l">Done</span></div></div></div>'+
     '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Last 30 days</h3></div><div class="strip">'+strip+'</div><p class="faint" style="font-size:12px;margin:10px 0 0">Darker means a more complete day.</p></div>';
-  return head+'<div class="grid g2" style="grid-template-columns:1.4fr 1fr">'+left+'<div>'+right+'</div></div>';
+  return head+'<div class="grid g2 hab-grid"><div class="hab-left">'+left+'</div><div class="hab-right">'+right+'</div></div>';
 }
 
 /* ---------- VIEW: MACROS ---------- */
@@ -2195,7 +2206,9 @@ function vSettings(){
   const wIn=(grp,k,label,v)=>'<div style="flex:1;min-width:86px"><label style="display:block;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:4px">'+label+'</label><input class="inp" type="number" min="0" data-change="'+grp+'" data-k="'+k+'" value="'+v+'"></div>';
   const areaRows=S().areas.map(a=>'<div class="row" data-drag-item data-id="'+a.id+'" style="padding:8px 2px"><span class="grip" data-grip>'+svg(I.grip)+'</span><div class="txt" style="'+(a.hidden?'opacity:.5':'')+'"><div class="t" style="font-size:13.5px">'+esc(a.name)+'</div></div><button class="btn sm" data-act="area-hide" data-id="'+a.id+'">'+(a.hidden?'Show':'Hide')+'</button><button class="icon-btn" data-act="area-rename" data-id="'+a.id+'">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="area-del" data-id="'+a.id+'">'+svg(I.trash)+'</button></div>').join('');
   const baks=Store.bakList.slice(0,12).map(b=>'<div class="row" style="padding:7px 2px"><div style="width:8px;height:8px;border-radius:50%;background:var(--'+(b.kind==='weekly'?'pine':'stone')+');flex:none"></div><div class="txt"><div class="t" style="font-size:13px">'+(b.kind==='weekly'?'Weekly':'Daily')+' \u00b7 '+fmtDL(b.date)+'</div></div><button class="btn sm" data-act="bak-restore" data-key="'+esc(b.key)+'" data-date="'+b.date+'">Restore</button></div>').join('');
+  const acct=(typeof Sync!=='undefined'&&Sync.uid)?'<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Account &amp; sync</h3><span class="spacer faint" id="sync-status-txt" style="font-size:12px;color:var(--sage)">'+(Sync.status==='synced'?'✓ Synced':(Sync.status==='syncing'?'Syncing…':''))+'</span></div><div class="muted" style="font-size:13px;margin:0 0 12px">Signed in as <b style="color:var(--ink)">'+esc(Sync.email||'your account')+'</b> — your data syncs automatically across your devices.</div><button class="btn" data-act="sync-signout">Sign out</button></div>':'';
   return '<div class="sect-head"><div class="lead"><h2>Settings</h2><p>Shape the app around what you\u2019re working on right now. Turning a tab off hides it everywhere \u2014 sidebar, calendar and overview \u2014 but never deletes its data.</p></div></div>'+
+  acct+
   '<div class="grid g2"><div><div class="card"><div class="card-h"><h3>Tabs</h3><span class="spacer faint" style="font-size:12px">Overview is always on</span></div>'+rows+'</div></div>'+
   '<div>'+
   '<div class="card"><div class="card-h"><h3>Profile</h3></div><div class="field" style="margin:0"><label>Display name \u2014 used in the dashboard greeting</label><input class="inp" value="'+esc(S().settings.name||'')+'" placeholder="Your name" data-change="set-name"></div></div>'+
@@ -2254,6 +2267,7 @@ const actions={
   nav(el){ui.view=el.dataset.id;ui.peekDone.clear();closeMore();render();window.scrollTo(0,0);},
   'more-open'(){openMore();},
   'more-close'(){closeMore();},
+  'sync-signout'(){if(typeof Sync!=='undefined')Sync.signOut();},
 
   /* calendar */
   'cal-prev'(){ui.calMonth=shiftMonth(ui.calMonth,-1);render();},
@@ -2959,6 +2973,7 @@ const Sync={
   },
   async onUser(user){
     this.uid=user.uid;
+    this.email=user.email||'';
     this.ref=this.db.collection('users').doc(user.uid);
     let remote=null;
     try{const snap=await this.ref.get();if(snap.exists)remote=snap.data();}catch(e){}
@@ -3057,11 +3072,7 @@ const Sync={
 #sync-overlay .sync-btns button:disabled{opacity:.55;cursor:default}
 #sync-overlay #sync-err{display:none;margin:13px 0 0;font-size:13px;color:var(--clay,#B06A48);line-height:1.45}
 #sync-overlay .sync-skip{display:block;margin-top:18px;font-size:12px;color:var(--ink-faint,#9C9483);text-decoration:underline;cursor:pointer;background:none;border:none;width:100%;padding:4px}
-#sync-overlay #sync-loading{color:var(--ink-soft,#6E685C);font-size:14px;padding:14px 0}
-#sync-pill{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:90;display:none;align-items:center;gap:10px;background:var(--surface,#fff);border:1px solid var(--line,#e4dccb);border-radius:22px;padding:6px 8px 6px 14px;font-size:12.5px;font-weight:600;color:var(--sage,#6E7A5A);box-shadow:0 6px 18px -8px rgba(44,42,36,.35)}
-#sync-pill.show{display:inline-flex}
-#sync-pill #sync-out{border:none;background:var(--surface-2,#EFEADF);color:var(--ink-soft,#6E685C);border-radius:14px;padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
-#sync-pill #sync-out:hover{color:var(--clay,#B06A48)}`;
+#sync-overlay #sync-loading{color:var(--ink-soft,#6E685C);font-size:14px;padding:14px 0}`;
     document.head.appendChild(css);
     const ov=document.createElement('div');
     ov.id='sync-overlay';
@@ -3091,13 +3102,6 @@ const Sync={
     ov.querySelector('#sync-signup').addEventListener('click',function(){self.signup();});
     ov.querySelector('#sync-skip').addEventListener('click',function(){self.skip();});
     this._pw.addEventListener('keydown',function(e){if(e.key==='Enter')self.login();});
-    const pill=document.createElement('div');
-    pill.id='sync-pill';
-    pill.innerHTML='<span id="sync-status"></span><button id="sync-out" type="button">Sign out</button>';
-    document.body.appendChild(pill);
-    this._pill=pill;
-    this._statusEl=pill.querySelector('#sync-status');
-    pill.querySelector('#sync-out').addEventListener('click',function(){self.signOut();});
   },
   showLogin(loading){
     if(!this._overlay)return;
@@ -3110,10 +3114,9 @@ const Sync={
   err(m){if(this._errEl){this._errEl.textContent=m||'';this._errEl.style.display=m?'block':'none';}},
   _busy(b){if(this._form)this._form.querySelectorAll('button,input').forEach(function(x){x.disabled=b;});},
   setStatus(s){
-    if(!this._pill)return;
-    if(!s){this._pill.classList.remove('show');return;}
-    this._pill.classList.add('show');
-    if(this._statusEl)this._statusEl.textContent=(s==='syncing'?'Syncing…':'✓ Synced');
+    this.status=s||'';
+    // if the Settings screen is open, update its account-card status live
+    if(ui.view==='settings'){const el=document.getElementById('sync-status-txt');if(el)el.textContent=(s==='synced'?'✓ Synced':(s==='syncing'?'Syncing…':''));}
   }
 };
 /* ---------- boot ---------- */
