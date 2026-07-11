@@ -1,0 +1,19 @@
+{
+  "name": "Terrain — Life OS",
+  "short_name": "Terrain",
+  "description": "Your personal life operating system — tasks, habits, goals, health, money and more, offline.",
+  "id": "/terrain.html",
+  "start_url": "terrain.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F4F0E8",
+  "theme_color": "#6E7A5A",
+  "categories": ["productivity", "lifestyle"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
