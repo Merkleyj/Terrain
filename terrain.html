@@ -593,7 +593,7 @@ const Store={
     if(typeof s.settings.lastBackup!=='string')s.settings.lastBackup='';
     if(!s.settings.goalWeights)s.settings.goalWeights={steps:30,projects:40,tasks:30};
     if(!s.settings.scoreWeights)s.settings.scoreWeights={exec:30,health:25,growth:15,finance:15,recovery:15};
-    const defTabs={calendar:true,inbox:true,todo:true,habits:true,workouts:true,running:true,sleep:true,macros:true,vision:true,goals:true,projects:true,skills:true,networth:true,budget:true,savings:true,bills:true,debts:true,achievements:true,bucket:true,reading:true,journal:true,review:true,areas:true,next:true};
+    const defTabs={calendar:true,inbox:true,todo:true,habits:true,workouts:true,running:true,sleep:true,macros:true,vision:true,goals:true,projects:true,skills:true,networth:true,savings:true,bills:true,achievements:true,bucket:true,reading:true,journal:true,review:true,areas:true,next:true};
     s.settings.tabs=Object.assign({},defTabs,s.settings.tabs||{});
     s.reading.forEach(r=>{
       if(typeof r.link!=='string')r.link='';
@@ -685,10 +685,8 @@ const NAV=[
   {id:'macros',label:'Macros',icon:'macros'},
   {sec:'Finance'},
   {id:'networth',label:'Net Worth',icon:'networth'},
-  {id:'budget',label:'Budget',icon:'budget'},
   {id:'savings',label:'Savings Goals',icon:'savings'},
   {id:'bills',label:'Bills & Subs',icon:'bills',count:()=>{const t=todayStr();return S().bills.filter(b=>{const nd=billNext(b);return nd&&diffDays(nd,t)<=7&&!(b.paidLog||[]).includes(nd);}).length||null;}},
-  {id:'debts',label:'Debt Payoff',icon:'debts'},
   {sec:'Explore'},
   {id:'achievements',label:'Achievements',icon:'award',count:()=>null},
   {id:'bucket',label:'Bucket List',icon:'bucket',count:()=>S().bucket.filter(b=>!b.done).length},
@@ -696,7 +694,7 @@ const NAV=[
   {id:'journal',label:'Reflection',icon:'journal'},
   {id:'review',label:'Weekly Review',icon:'clipboard'}
 ];
-const TITLES={overview:'Overview',calendar:'Calendar',todo:'To-Do',habits:'Daily Checklist',macros:'Macro Tracker',workouts:'Workouts',running:'Running',sleep:'Sleep & Recovery',vision:'Vision & Identity',skills:'Learning & Skills',achievements:'Achievements',goals:'Goals',projects:'Projects',networth:'Net Worth',budget:'Budget & Spending',savings:'Savings Goals',bills:'Bills & Subscriptions',debts:'Debt Payoff',bucket:'Bucket List',reading:'Reading & Podcasts',journal:'Reflection & Journal',inbox:'Inbox',review:'Weekly Review',areas:'Life Areas',next:'Next Actions',settings:'Settings'};
+const TITLES={overview:'Overview',calendar:'Calendar',todo:'To-Do',habits:'Daily Checklist',macros:'Macro Tracker',workouts:'Workouts',running:'Running',sleep:'Sleep & Recovery',vision:'Vision & Identity',skills:'Learning & Skills',achievements:'Achievements',goals:'Goals',projects:'Projects',networth:'Net Worth',savings:'Savings Goals',bills:'Bills & Subscriptions',bucket:'Bucket List',reading:'Reading & Podcasts',journal:'Reflection & Journal',inbox:'Inbox',review:'Weekly Review',areas:'Life Areas',next:'Next Actions',settings:'Settings'};
 
 /* ---------- render root shell ---------- */
 function navItemBtn(n){
@@ -794,6 +792,7 @@ let flashT;
 function flashSaved(){const e=$('#saved');if(!e)return;e.classList.add('show');clearTimeout(flashT);flashT=setTimeout(()=>e.classList.remove('show'),1200);}
 
 function render(){
+  if(!VIEWS[ui.view])ui.view='overview'; // safety: unknown/removed view falls back to Overview
   const view=document.getElementById('view');
   if(!view){shell();return;}
   // Shell already exists — update in place so the sidebar keeps its scroll position.
@@ -2224,7 +2223,7 @@ function vSettings(){
   '</div></div>';
 }
 
-const VIEWS={overview:vOverview,calendar:vCalendar,todo:vTodo,goals:vGoals,projects:vProjects,habits:vHabits,macros:vMacros,bucket:vBucket,reading:vReading,journal:vJournal,workouts:vWorkouts,running:vRunning,sleep:vSleep,inbox:vInbox,review:vReview,areas:vAreas,next:vNext,vision:vVision,skills:vSkills,achievements:vAchievements,networth:vNetWorth,budget:vBudget,savings:vSavings,bills:vBills,debts:vDebts,settings:vSettings};
+const VIEWS={overview:vOverview,calendar:vCalendar,todo:vTodo,goals:vGoals,projects:vProjects,habits:vHabits,macros:vMacros,bucket:vBucket,reading:vReading,journal:vJournal,workouts:vWorkouts,running:vRunning,sleep:vSleep,inbox:vInbox,review:vReview,areas:vAreas,next:vNext,vision:vVision,skills:vSkills,achievements:vAchievements,networth:vNetWorth,savings:vSavings,bills:vBills,settings:vSettings};
 
 /* ---------- MODAL ---------- */
 let modalSave=null;
