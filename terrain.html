@@ -327,16 +327,36 @@ details.expl p{font-size:11.5px;color:var(--ink-soft);margin:8px 0 0;line-height
 
 /* mobile nav */
 .mobnav{display:none}
+/* mobile "More" sheet */
+.mobmore{position:fixed;inset:0;z-index:200;display:none}
+.mobmore.open{display:block}
+.mobmore-backdrop{position:absolute;inset:0;background:rgba(44,42,36,.42);backdrop-filter:blur(2px);animation:fade .18s}
+.mobmore-sheet{position:absolute;left:0;right:0;bottom:0;max-height:82vh;display:flex;flex-direction:column;background:var(--surface);border-top:1px solid var(--line);border-radius:20px 20px 0 0;box-shadow:0 -14px 40px -12px rgba(44,42,36,.4);animation:sheetup .24s cubic-bezier(.22,1,.36,1)}
+@keyframes sheetup{from{transform:translateY(100%)}to{transform:none}}
+.mobmore-head{display:flex;align-items:center;padding:16px 18px 8px}
+.mobmore-title{font-family:var(--serif);font-weight:600;font-size:20px;letter-spacing:-.01em}
+.mobmore-close{margin-left:auto;width:34px;height:34px;display:grid;place-items:center;border:none;background:var(--surface-2);border-radius:50%;color:var(--ink-soft);cursor:pointer}
+.mobmore-close svg{width:16px;height:16px}
+.mobmore-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:2px 12px calc(18px + env(safe-area-inset-bottom))}
+.mobmore-group{margin-bottom:6px}
+.mobmore-label{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;padding:13px 8px 3px}
+.mobmore-item{display:flex;align-items:center;gap:13px;width:100%;padding:13px 10px;border:none;background:none;border-radius:12px;color:var(--ink);font-size:15px;font-weight:500;text-align:left}
+.mobmore-item>svg{width:20px;height:20px;flex:none;color:var(--ink-soft)}
+.mobmore-item .mobmore-chev{margin-left:auto;width:16px;height:16px;color:var(--ink-faint)}
+.mobmore-item.on{background:var(--sage-bg);color:var(--sage)}
+.mobmore-item.on>svg,.mobmore-item.on .mobmore-chev{color:var(--sage)}
+.mobmore-item:active{background:var(--surface-2)}
+body.mobmore-lock{overflow:hidden}
 @media(max-width:860px){
   .app{grid-template-columns:1fr}
   .sidebar{display:none}
   .topbar{padding:14px 16px}
   .view{padding:18px 16px 96px}
   .g2,.g3,.g4{grid-template-columns:1fr}
-  .mobnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(252,250,245,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom));overflow-x:auto;gap:2px;scrollbar-width:none}
-  .mobnav::-webkit-scrollbar{display:none}
-  .mob-item{flex:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 12px;border:none;background:none;border-radius:10px;color:var(--ink-faint);font-size:10px;font-weight:600;min-width:58px}
-  .mob-item svg{width:20px;height:20px}
+  .mobnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(252,250,245,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));gap:2px}
+  .mob-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;padding:7px 3px;border:none;background:none;border-radius:10px;color:var(--ink-faint);font-size:10px;font-weight:600}
+  .mob-item svg{width:22px;height:22px}
+  .mob-item span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mob-item.on{color:var(--sage)}
   .food-add{grid-template-columns:1fr 1fr;gap:6px}
   .food-row{grid-template-columns:1fr auto auto;grid-auto-rows:auto}
@@ -457,7 +477,9 @@ const I={
   pin:'<path d="M12 17v5M9 3h6l-1 7 3 3v1H7v-1l3-3z"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
   target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>',
-  grip:'<circle cx="9" cy="5.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="5.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="18.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18.5" r="1.4" fill="currentColor" stroke="none"/>'
+  grip:'<circle cx="9" cy="5.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="5.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="18.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18.5" r="1.4" fill="currentColor" stroke="none"/>',
+  more:'<circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.7" fill="currentColor" stroke="none"/>',
+  x:'<path d="M6 6l12 12M18 6L6 18"/>'
 };
 const svg=(p,cls)=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'+(cls?' class="'+cls+'"':'')+'>'+p+'</svg>';
 
@@ -605,7 +627,7 @@ function enabled(id){
 }
 
 /* ---------- transient ui state ---------- */
-const ui={view:'overview',habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
+const ui={view:'overview',moreOpen:false,habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
   calMonth:firstOfMonth(todayStr()),session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',focus:null,fTimer:null,skTimer:null,skTick:null,
   todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all'};
 
@@ -691,10 +713,41 @@ function navHtml(){
   }
   return navParts.join('');
 }
+// Mobile bottom bar: a small fixed set of daily-use destinations + a "More" sheet.
+const MOBILE_PRIMARY=[
+  {id:'overview',label:'Overview'},
+  {id:'calendar',label:'Calendar'},
+  {id:'todo',label:'To-Do'},
+  {id:'habits',label:'Checklist'}
+];
 function mobHtml(){
-  return NAV.filter(n=>!n.sec&&enabled(n.id)).map(n=>'<button class="mob-item'+(ui.view===n.id?' on':'')+'" data-act="nav" data-id="'+n.id+'">'+svg(I[n.icon])+'<span>'+n.label.split(' ')[0]+'</span></button>').join('')+
-    '<button class="mob-item'+(ui.view==='settings'?' on':'')+'" data-act="nav" data-id="settings">'+svg(I.sliders)+'<span>Settings</span></button>';
+  const prim=MOBILE_PRIMARY.map(p=>{const n=NAV.find(x=>x.id===p.id);return n&&enabled(n.id)?{n:n,label:p.label}:null;}).filter(Boolean);
+  const primSet=new Set(prim.map(p=>p.n.id));
+  const inMore=!primSet.has(ui.view); // current view (incl. settings) lives under "More"
+  let h=prim.map(p=>'<button class="mob-item'+(ui.view===p.n.id?' on':'')+'" data-act="nav" data-id="'+p.n.id+'">'+svg(I[p.n.icon])+'<span>'+p.label+'</span></button>').join('');
+  h+='<button class="mob-item'+(inMore?' on':'')+'" data-act="more-open" aria-haspopup="true">'+svg(I.more)+'<span>More</span></button>';
+  return h;
 }
+function mobMoreHtml(){
+  const primSet=new Set(MOBILE_PRIMARY.map(p=>p.id));
+  const groups=[];let cur={label:'General',items:[]};
+  const flush=()=>{if(cur.items.length)groups.push(cur);};
+  for(const n of NAV){
+    if(n.sec){flush();cur={label:n.sec,items:[]};}
+    else if(enabled(n.id)&&!primSet.has(n.id))cur.items.push(n);
+  }
+  flush();
+  groups.push({label:'App',items:[{id:'settings',label:'Settings',icon:'sliders'}]});
+  const body=groups.map(g=>'<div class="mobmore-group"><div class="mobmore-label">'+esc(g.label)+'</div>'+
+    g.items.map(n=>'<button class="mobmore-item'+(ui.view===n.id?' on':'')+'" data-act="nav" data-id="'+n.id+'">'+svg(I[n.icon])+'<span>'+esc(n.label)+'</span>'+svg(I.chevR,'mobmore-chev')+'</button>').join('')+
+    '</div>').join('');
+  return '<div class="mobmore-backdrop" data-act="more-close"></div>'+
+    '<div class="mobmore-sheet"><div class="mobmore-head"><div class="mobmore-title">More</div>'+
+    '<button class="mobmore-close" data-act="more-close" aria-label="Close">'+svg(I.x)+'</button></div>'+
+    '<div class="mobmore-body">'+body+'</div></div>';
+}
+function openMore(){ui.moreOpen=true;const m=document.getElementById('mobmore');if(m){m.innerHTML=mobMoreHtml();m.classList.add('open');}document.body.classList.add('mobmore-lock');}
+function closeMore(){ui.moreOpen=false;const m=document.getElementById('mobmore');if(m)m.classList.remove('open');document.body.classList.remove('mobmore-lock');}
 function shell(){
   const t=new Date();
   const setBtn='<button class="nav-item'+(ui.view==='settings'?' on':'')+'" data-act="nav" data-id="settings" style="margin-top:auto">'+svg(I.sliders)+'<span>Settings</span></button>';
@@ -712,6 +765,7 @@ function shell(){
         '<div class="view" id="view"></div>'+
       '</main>'+
       '<nav class="mobnav">'+mobHtml()+'</nav>'+
+      '<div id="mobmore" class="mobmore"></div>'+
     '</div>';
   $('#view').innerHTML=VIEWS[ui.view]();
 }
@@ -723,6 +777,7 @@ function refreshNav(){
   if(setBtn)setBtn.classList.toggle('on',ui.view==='settings');
   const mobEl=document.querySelector('.mobnav');
   if(mobEl)mobEl.innerHTML=mobHtml();
+  if(ui.moreOpen){const m=document.getElementById('mobmore');if(m)m.innerHTML=mobMoreHtml();}
 }
 let flashT;
 function flashSaved(){const e=$('#saved');if(!e)return;e.classList.add('show');clearTimeout(flashT);flashT=setTimeout(()=>e.classList.remove('show'),1200);}
@@ -2196,7 +2251,9 @@ function getInput(id){const e=document.getElementById(id);return e?e.value.trim(
 function num(id){const e=document.getElementById(id);return e&&e.value!==''?+e.value:0;}
 
 const actions={
-  nav(el){ui.view=el.dataset.id;ui.peekDone.clear();render();window.scrollTo(0,0);},
+  nav(el){ui.view=el.dataset.id;ui.peekDone.clear();closeMore();render();window.scrollTo(0,0);},
+  'more-open'(){openMore();},
+  'more-close'(){closeMore();},
 
   /* calendar */
   'cal-prev'(){ui.calMonth=shiftMonth(ui.calMonth,-1);render();},
@@ -2871,6 +2928,7 @@ document.addEventListener('keydown',e=>{
     const inp=e.target.closest('[data-enter]');
     if(inp){e.preventDefault();const act=inp.dataset.enter;if(actions[act])actions[act](inp,e);return;}
   }
+  if(e.key==='Escape'&&ui.moreOpen){closeMore();return;}
   if(e.key==='Escape'&&$('#modal-root').innerHTML)closeModal();
 });
 
