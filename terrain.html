@@ -357,9 +357,10 @@ body.mobmore-lock{overflow:hidden}
   .topbar .date b{font-size:12px}
   .view{padding:16px 16px 96px}
   .g2,.g3,.g4{grid-template-columns:1fr}
-  /* one header on mobile: keep the sticky topbar, drop the redundant in-page title/description */
+  /* mobile: keep the sticky topbar; drop the in-page description to save space
+     (the redundant in-page title is removed globally by dedupeHeader) */
   .sect-head{margin-bottom:12px;gap:10px}
-  .sect-head .lead{display:none}
+  .sect-head p{display:none}
   .sect-head .actions{margin-left:0}
   .hab-grid{grid-template-columns:1fr}
   .hab-left{order:2}
@@ -777,6 +778,13 @@ function shell(){
       '<div id="mobmore" class="mobmore"></div>'+
     '</div>';
   $('#view').innerHTML=VIEWS[ui.view]();
+  dedupeHeader();
+}
+// Hide the in-page section title when it just repeats the sticky top-bar title.
+// Titles that carry unique info (e.g. a specific life-area name) don't match and stay visible.
+function dedupeHeader(){
+  const sh=document.querySelector('#view .sect-head h2');
+  if(sh&&sh.textContent.trim()===String(TITLES[ui.view]||'').trim())sh.style.display='none';
 }
 // Update only the nav highlight/counts and mobile bar in place, preserving sidebar scroll position.
 function refreshNav(){
@@ -800,6 +808,7 @@ function render(){
   if(h1)h1.textContent=TITLES[ui.view];
   refreshNav();
   view.innerHTML=VIEWS[ui.view]();
+  dedupeHeader();
 }
 
 /* ---------- shared bits ---------- */
