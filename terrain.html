@@ -348,7 +348,12 @@ details.expl p{font-size:11.5px;color:var(--ink-soft);margin:8px 0 0;line-height
 .mobmore-item.on>svg,.mobmore-item.on .mobmore-chev{color:var(--sage)}
 .mobmore-item:active{background:var(--surface-2)}
 body.mobmore-lock{overflow:hidden}
+/* quick-log floating action button (mobile only) */
+#qa-fab{display:none;position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom,0px));z-index:45;width:54px;height:54px;border-radius:50%;border:none;background:var(--sage);color:#fff;box-shadow:0 8px 22px -6px rgba(44,42,36,.5);align-items:center;justify-content:center;cursor:pointer;transition:transform .12s}
+#qa-fab svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round}
+#qa-fab:active{transform:scale(.94)}
 @media(max-width:860px){
+  #qa-fab{display:flex}
   .app{grid-template-columns:1fr}
   .sidebar{display:none}
   .topbar{padding:10px 16px;gap:10px}
@@ -639,7 +644,7 @@ function enabled(id){
 }
 
 /* ---------- transient ui state ---------- */
-const ui={view:'overview',moreOpen:false,habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
+const ui={view:'overview',moreOpen:false,qaOpen:false,qaMode:'main',habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
   calMonth:firstOfMonth(todayStr()),session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',focus:null,fTimer:null,skTimer:null,skTick:null,
   todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all'};
 
@@ -756,8 +761,43 @@ function mobMoreHtml(){
     '<button class="mobmore-close" data-act="more-close" aria-label="Close">'+svg(I.x)+'</button></div>'+
     '<div class="mobmore-body">'+body+'</div></div>';
 }
-function openMore(){ui.moreOpen=true;const m=document.getElementById('mobmore');if(m){m.innerHTML=mobMoreHtml();m.classList.add('open');}document.body.classList.add('mobmore-lock');}
+function openMore(){closeQa();ui.moreOpen=true;const m=document.getElementById('mobmore');if(m){m.innerHTML=mobMoreHtml();m.classList.add('open');}document.body.classList.add('mobmore-lock');}
 function closeMore(){ui.moreOpen=false;const m=document.getElementById('mobmore');if(m)m.classList.remove('open');document.body.classList.remove('mobmore-lock');}
+/* ---------- quick-log (mobile FAB) ---------- */
+function qaSheetWrap(title,back,inner){
+  const head='<div class="mobmore-head">'+
+    (back?'<button class="mobmore-close" data-act="qa-back" aria-label="Back" style="margin-right:12px">'+svg(I.chevL)+'</button>':'')+
+    '<div class="mobmore-title">'+title+'</div>'+
+    '<button class="mobmore-close" data-act="qa-close" aria-label="Close" style="margin-left:auto">'+svg(I.x)+'</button></div>';
+  return '<div class="mobmore-backdrop" data-act="qa-close"></div><div class="mobmore-sheet">'+head+'<div class="mobmore-body">'+inner+'</div></div>';
+}
+function qaRow(act,icon,label,extra){return '<button class="mobmore-item" data-act="'+act+'"'+(extra||'')+'>'+svg(I[icon])+'<span>'+label+'</span>'+svg(I.chevR,'mobmore-chev')+'</button>';}
+function qaHtml(){
+  if(ui.qaMode==='workouts'){
+    const ws=S().workouts||[];
+    const inner=ws.length?ws.map(w=>qaRow('qa-wk-pick','dumbbell',esc(w.name),' data-id="'+w.id+'"')).join('')
+      :'<p class="faint" style="font-size:13px;padding:10px">No workout templates yet. <button class="btn sm" data-act="qa-goto" data-id="workouts">Go to Workouts</button></p>';
+    return qaSheetWrap('Start a workout',true,inner);
+  }
+  if(ui.qaMode==='skills'){
+    const sks=S().skills||[];
+    const inner=sks.length?sks.map(sk=>qaRow('qa-sk-pick','bulb',esc(sk.name),' data-id="'+sk.id+'"')).join('')
+      :'<p class="faint" style="font-size:13px;padding:10px">No skills yet. <button class="btn sm" data-act="qa-goto" data-id="skills">Go to Skills</button></p>';
+    return qaSheetWrap('Start a skill timer',true,inner);
+  }
+  const inner=[
+    qaRow('qa-run','route','Log a run'),
+    qaRow('qa-food','macros','Log food'),
+    qaRow('qa-mode','dumbbell','Log a workout',' data-id="workouts"'),
+    qaRow('qa-sleep','moon','Log sleep'),
+    qaRow('qa-inbox','inboxI','Jot to Inbox'),
+    qaRow('qa-mode','bulb','Start a skill timer',' data-id="skills"')
+  ].join('');
+  return qaSheetWrap('Quick log',false,inner);
+}
+function qaRerender(){const el=document.getElementById('qa-sheet');if(el)el.innerHTML=qaHtml();}
+function openQa(){closeMore();ui.qaMode='main';ui.qaOpen=true;const el=document.getElementById('qa-sheet');if(el){el.innerHTML=qaHtml();el.classList.add('open');}document.body.classList.add('mobmore-lock');}
+function closeQa(){ui.qaOpen=false;const el=document.getElementById('qa-sheet');if(el)el.classList.remove('open');document.body.classList.remove('mobmore-lock');}
 function shell(){
   const t=new Date();
   const setBtn='<button class="nav-item'+(ui.view==='settings'?' on':'')+'" data-act="nav" data-id="settings" style="margin-top:auto">'+svg(I.sliders)+'<span>Settings</span></button>';
@@ -776,6 +816,8 @@ function shell(){
       '</main>'+
       '<nav class="mobnav">'+mobHtml()+'</nav>'+
       '<div id="mobmore" class="mobmore"></div>'+
+      '<button id="qa-fab" data-act="qa-open" aria-label="Quick log">'+svg(I.plus)+'</button>'+
+      '<div id="qa-sheet" class="mobmore"></div>'+
     '</div>';
   $('#view').innerHTML=VIEWS[ui.view]();
   dedupeHeader();
@@ -2272,10 +2314,33 @@ function getInput(id){const e=document.getElementById(id);return e?e.value.trim(
 function num(id){const e=document.getElementById(id);return e&&e.value!==''?+e.value:0;}
 
 const actions={
-  nav(el){ui.view=el.dataset.id;ui.peekDone.clear();closeMore();render();window.scrollTo(0,0);},
+  nav(el){ui.view=el.dataset.id;ui.peekDone.clear();closeMore();closeQa();render();window.scrollTo(0,0);},
   'more-open'(){openMore();},
   'more-close'(){closeMore();},
   'sync-signout'(){if(typeof Sync!=='undefined')Sync.signOut();},
+  'qa-open'(){openQa();},
+  'qa-close'(){closeQa();},
+  'qa-back'(){ui.qaMode='main';qaRerender();},
+  'qa-mode'(el){ui.qaMode=el.dataset.id;qaRerender();},
+  'qa-food'(){ui.macroDate=todayStr();ui.view='macros';closeQa();render();window.scrollTo(0,0);},
+  'qa-goto'(el){ui.view=el.dataset.id;closeQa();render();window.scrollTo(0,0);},
+  'qa-wk-pick'(el){const id=el.dataset.id;closeQa();ui.session={workoutId:id,date:todayStr(),sets:[]};ui.view='workouts';render();window.scrollTo(0,0);},
+  'qa-sk-pick'(el){const id=el.dataset.id;closeQa();ui.view='skills';startSkTimer(id);window.scrollTo(0,0);toast('Timer started');},
+  'qa-run'(){closeQa();openModal({title:'Log a run',ok:'Save',fields:[
+    {key:'mi',label:'Miles',type:'number',placeholder:'3.1',half:true},
+    {key:'time',label:'Time (mm:ss)',placeholder:'28:30',half:true},
+    {key:'date',label:'Date',type:'date',value:todayStr()}
+  ],onSave(v){const mi=parseFloat(v.mi);if(!mi||mi<=0){toast('Enter the miles');return;}const sec=parseTimeStr(v.time);if(!sec){toast('Enter the time — like 28:30');return;}S().runs.push({id:uid(),date:v.date||todayStr(),mi:Math.round(mi*100)/100,sec});commit();toast('Run logged');}});},
+  'qa-sleep'(){closeQa();openModal({title:'Log sleep',ok:'Save',fields:[
+    {key:'date',label:'Date',type:'date',value:todayStr()},
+    {key:'bed',label:'Bedtime',type:'time',half:true},
+    {key:'wake',label:'Wake time',type:'time',half:true},
+    {key:'q',label:'Quality (1–5)',type:'number',placeholder:'3'},
+    {key:'note',label:'Note (optional)',placeholder:'How you feel…'}
+  ],onSave(v){const b=parseHM(v.bed),w=parseHM(v.wake);if(b==null||w==null){toast('Enter bed and wake times');return;}let dur=w-b;if(dur<=0)dur+=1440;const q=clamp(+v.q||3,1,5);const d=v.date||todayStr();const ex=S().sleepLog.find(x=>x.date===d);if(ex){Object.assign(ex,{bed:v.bed,wake:v.wake,dur,q,note:v.note||''});commit();toast('Night updated');}else{S().sleepLog.push({id:uid(),date:d,bed:v.bed,wake:v.wake,dur,q,note:v.note||''});commit();toast('Sleep logged');}}});},
+  'qa-inbox'(){closeQa();openModal({title:'Jot to Inbox',ok:'Add',fields:[
+    {key:'text',label:'What’s on your mind?',type:'textarea',placeholder:'A task, idea, thing to look up…'}
+  ],onSave(v){if(!v.text)return;S().inbox.push({id:uid(),text:v.text,created:todayStr()});commit();toast('Captured to Inbox');}});},
 
   /* calendar */
   'cal-prev'(){ui.calMonth=shiftMonth(ui.calMonth,-1);render();},
@@ -2950,6 +3015,7 @@ document.addEventListener('keydown',e=>{
     const inp=e.target.closest('[data-enter]');
     if(inp){e.preventDefault();const act=inp.dataset.enter;if(actions[act])actions[act](inp,e);return;}
   }
+  if(e.key==='Escape'&&ui.qaOpen){closeQa();return;}
   if(e.key==='Escape'&&ui.moreOpen){closeMore();return;}
   if(e.key==='Escape'&&$('#modal-root').innerHTML)closeModal();
 });
