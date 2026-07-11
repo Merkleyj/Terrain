@@ -2882,3 +2882,67 @@ if('serviceWorker' in navigator){
   });
 }
 </script>
+<!-- PWA: "Install app" button (Add to Home Screen) -->
+<style>
+#pwa-install{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:100;opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .2s,transform .2s}
+#pwa-install.show{opacity:1;transform:none;pointer-events:auto}
+#pwa-install .pwa-btn{display:inline-flex;align-items:center;gap:8px;background:var(--sage,#6E7A5A);color:#fff;border:none;border-radius:24px;padding:11px 18px;font-family:var(--sans,system-ui,sans-serif);font-size:14px;font-weight:600;box-shadow:0 6px 18px -6px rgba(44,42,36,.45);cursor:pointer}
+#pwa-install .pwa-btn:hover{background:#5f6b4c}
+#pwa-install .pwa-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#pwa-install .pwa-hint{position:absolute;right:0;bottom:calc(100% + 10px);width:255px;background:var(--surface,#fff);color:var(--ink,#2C2A24);border:1px solid var(--line,#e4dccb);border-radius:12px;padding:14px 32px 14px 14px;font-size:13px;line-height:1.5;box-shadow:0 12px 30px -12px rgba(44,42,36,.4);display:none}
+#pwa-install .pwa-hint.show{display:block}
+#pwa-install .pwa-hint b{font-weight:600}
+#pwa-install .pwa-hint .pwa-x{position:absolute;top:7px;right:9px;cursor:pointer;color:var(--ink-faint,#9c9483);font-size:17px;line-height:1;background:none;border:none;padding:2px}
+</style>
+<script>
+(function(){
+  var mm=window.matchMedia&&window.matchMedia('(display-mode: standalone)');
+  var standalone=(mm&&mm.matches)||window.navigator.standalone===true;
+  if(standalone)return; // already installed — no button needed
+
+  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||
+            (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  var deferred=null;
+
+  var wrap=document.createElement('div');
+  wrap.id='pwa-install';
+  wrap.innerHTML=
+    '<div class="pwa-hint" id="pwa-hint">'+
+      '<button class="pwa-x" id="pwa-x" aria-label="Close">×</button>'+
+      '<b>Install Terrain</b><br>Tap the Share button '+
+      '(the square with an arrow), then choose <b>“Add to Home Screen.”</b>'+
+    '</div>'+
+    '<button class="pwa-btn" id="pwa-btn" type="button">'+
+      '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>'+
+      'Install app'+
+    '</button>';
+  document.body.appendChild(wrap);
+
+  var btn=wrap.querySelector('#pwa-btn');
+  var hint=wrap.querySelector('#pwa-hint');
+  wrap.querySelector('#pwa-x').addEventListener('click',function(){hint.classList.remove('show');});
+
+  function show(){wrap.classList.add('show');}
+  function hide(){wrap.classList.remove('show');}
+
+  // Android / desktop Chrome & Edge: capture the install prompt.
+  window.addEventListener('beforeinstallprompt',function(e){
+    e.preventDefault();
+    deferred=e;
+    show();
+  });
+  window.addEventListener('appinstalled',function(){deferred=null;hide();});
+
+  btn.addEventListener('click',function(){
+    if(deferred){
+      deferred.prompt();
+      deferred.userChoice.finally(function(){deferred=null;hide();});
+    }else if(isIOS){
+      hint.classList.toggle('show');
+    }
+  });
+
+  // iOS Safari never fires beforeinstallprompt — show the button with manual steps.
+  if(isIOS)show();
+})();
+</script>
