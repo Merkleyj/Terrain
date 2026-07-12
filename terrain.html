@@ -873,7 +873,7 @@ function tvHtml(){
   const evs=dayEvents(t).filter(e=>e.src!=='todo').slice(0,6);
   const sched=evs.length?evs.map(e=>{const m=CAL_SRC[e.src];return li(m.color,esc(e.text),m.label,false,e.done);}).join(''):empty('Nothing scheduled today.');
   const openTodos=S().todos.filter(x=>!x.done);
-  const prio=openTodos.filter(x=>x.priority==='high').concat(openTodos.filter(x=>x.priority!=='high'&&x.due&&diffDays(x.due,t)<=3)).slice(0,6);
+  const prio=openTodos.filter(x=>x.priority==='high').concat(openTodos.filter(x=>x.priority!=='high'&&x.due&&diffDays(x.due,t)<=3)).concat(openTodos.filter(x=>x.priority!=='high'&&!(x.due&&diffDays(x.due,t)<=3))).slice(0,6);
   const priBody=prio.length?prio.map(x=>{const rd=x.due?relDue(x.due):null;const over=x.priority==='high'||(rd&&rd.cls==='over');const col=(x.priority==='high'||(rd&&rd.cls==='over'))?'clay':(rd&&(rd.cls==='today'||rd.cls==='soon')?'wheat':'sage');return li(col,esc(x.text),x.priority==='high'?'High':(rd?rd.txt:''),over);}).join(''):empty('Nothing urgent.');
   const up=upcoming().slice(0,6);
   const deadBody=up.length?up.map(x=>{const rd=relDue(x.when);const over=rd&&rd.cls==='over';const col=over?'clay':(rd&&(rd.cls==='today'||rd.cls==='soon')?'wheat':'sage');return li(col,esc(x.label),rd?rd.txt:'',over);}).join(''):empty('Nothing ahead.');
@@ -881,24 +881,23 @@ function tvHtml(){
   const ag=S().goals.filter(g=>goalPct(g)<100).slice(0,4);
   const goalsBody=ag.length?ag.map(g=>{const p=goalPct(g);return '<div class="tv-prog"><div class="tv-progt"><span>'+esc(g.title)+'</span><span class="tv-pct">'+p+'%</span></div>'+bar(p,'var(--'+goalColorName(g)+')')+'</div>';}).join(''):empty('No active goals.');
   const mrow=(lab,val,goal,col,unit)=>{const p=pct(val,goal);return '<div class="tv-prog"><div class="tv-progt"><span>'+lab+'</span><span class="tv-mval">'+Math.round(val)+(unit||'')+' / '+goal+(unit||'')+'</span></div>'+bar(p,'var(--'+col+')')+'</div>';};
-  const nutBody=mrow('Calories',mt.cal,mg.cal,'clay','')+mrow('Protein',mt.p,mg.p,'sage','g')+mrow('Carbs',mt.c,mg.c,'wheat','g');
+  const nutBody=mrow('Calories',mt.cal,mg.cal,'clay','')+mrow('Protein',mt.p,mg.p,'sage','g')+mrow('Carbs',mt.c,mg.c,'wheat','g')+mrow('Fat',mt.f,mg.f,'stone','g');
   let strip='';for(let i=13;i>=0;i--){const d=addDays(t,-i),s=habitStat(d),o=s.total?(s.pct===0?0:0.2+s.pct/100*0.8):0;strip+='<div class="tv-sq'+(d===t?' today':'')+'" style="'+(o?'background:rgba(110,122,90,'+o.toFixed(2)+')':'')+'"></div>';}
   const consBody='<div class="tv-strip">'+strip+'</div><div class="tv-consft"><span>'+streak+'-day streak</span><span class="tv-pct">'+hs.pct+'%</span></div>';
-  const slog=S().sleepLog.slice().sort((a,b)=>a.date<b.date?1:-1),sl=slog[0];
-  const sl7=slog.filter(x=>diffDays(t,x.date)<7),slAvg=sl7.length?sl7.reduce((a,x)=>a+x.dur,0)/sl7.length:0,slAvgQ=sl7.length?sl7.reduce((a,x)=>a+(x.q||0),0)/sl7.length:0;
-  const tv3=(l,v)=>'<div class="tv-3"><div class="tv-3n">'+v+'</div><div class="tv-3l">'+l+'</div></div>';
-  const sleepBody=slog.length?'<div class="tv-3row">'+tv3('LAST',fmtDur(sl.dur))+tv3('AVG',sl7.length?fmtDur(Math.round(slAvg)):'—')+tv3('QUAL',sl7.length?(Math.round(slAvgQ*10)/10):'—')+'</div><div class="tv-sbar">'+bar(sl7.length?clamp(slAvg/540*100,0,100):0,'var(--plum)')+'</div>':empty('No sleep logged.');
+  const slog=S().sleepLog.slice().sort((a,b)=>a.date<b.date?1:-1);
+  const sl7=slog.filter(x=>diffDays(t,x.date)<7),slAvg=sl7.length?sl7.reduce((a,x)=>a+x.dur,0)/sl7.length:0;
   const wkWk=S().workoutLog.filter(l=>weekSun(l.date)===wk).length,wkMi=S().runs.filter(r=>weekSun(r.date)===wk).reduce((a,r)=>a+r.mi,0);
-  let fb='',fmax=0;const fd=[];for(let i=6;i>=0;i--){const d=addDays(t,-i),mi=S().runs.filter(r=>r.date===d).reduce((a,r)=>a+r.mi,0);fd.push(mi);fmax=Math.max(fmax,mi);}
-  fb=fd.map(mi=>'<div class="tv-fbar" style="height:'+(fmax?Math.max(5,mi/fmax*100):5)+'%"></div>').join('');
-  const fitBody='<div class="tv-3row">'+(enabled('workouts')?tv3('WORKOUTS',wkWk):'')+(enabled('running')?tv3('MILES',Math.round(wkMi*10)/10):'')+'</div>'+(enabled('running')?'<div class="tv-fchart">'+fb+'</div>':'');
+  const ap=S().projects.slice(0,4);
+  const projBody=ap.length?ap.map(p=>{const pp=projPct(p),done=(p.tasks||[]).filter(x=>x.status==='done').length;return '<div class="tv-prog"><div class="tv-progt"><span>'+esc(p.name)+'</span><span class="tv-pct">'+done+'/'+(p.tasks||[]).length+'</span></div>'+bar(pp,'var(--'+(p.color||'sage')+')')+'</div>';}).join(''):empty('No projects.');
+  const hlog=S().habitLog[t]||{};
+  const checklistBody=S().habits.length?S().habits.slice(0,7).map(h=>'<div class="tv-li"><span class="tv-chk'+(hlog[h.id]?' on':'')+'">'+(hlog[h.id]?svg(I.check):'')+'</span><span class="tv-litx'+(hlog[h.id]?' tv-done':'')+'">'+esc(h.name)+'</span></div>').join(''):empty('No habits yet.');
 
   const hstat=(v,l)=>'<div class="tv-hstat"><div class="tv-hn">'+v+'</div><div class="tv-hl">'+l+'</div></div>';
   const hstats=[];
   if(enabled('habits')){hstats.push(hstat(streak,'Streak'));hstats.push(hstat(hs.done+'/'+hs.total,'Habits'));}
-  if(enabled('macros'))hstats.push(hstat(Math.round(mt.cal),'Cal'));
+  if(enabled('workouts'))hstats.push(hstat(wkWk,'Workouts'));
   if(enabled('running'))hstats.push(hstat(Math.round(wkMi*10)/10,'Miles'));
-  if(enabled('workouts')&&!enabled('running'))hstats.push(hstat(wkWk,'Workouts'));
+  if(enabled('sleep')&&sl7.length)hstats.push(hstat(fmtDur(Math.round(slAvg)),'Avg sleep'));
   const topo='<svg class="tv-topo" viewBox="0 0 400 200" preserveAspectRatio="none">'+[0,1,2,3,4,5].map(i=>'<path d="M-20 '+(30+i*30)+' C 80 '+(10+i*30)+', 160 '+(60+i*30)+', 240 '+(30+i*30)+' S 380 '+(50+i*30)+', 440 '+(25+i*30)+'" fill="none" stroke="#fff" stroke-width="1.4"/>').join('')+'</svg>';
   const R=46,C=2*Math.PI*R;
   const ring=enabled('habits')?'<div class="tv-ring"><svg viewBox="0 0 108 108"><circle cx="54" cy="54" r="'+R+'" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="9"/><circle cx="54" cy="54" r="'+R+'" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+(C-C*hs.pct/100)+'" transform="rotate(-90 54 54)"/></svg><div class="tv-ringc"><b>'+hs.pct+'%</b></div></div>':'';
@@ -908,10 +907,10 @@ function tvHtml(){
   row1.push(card('Deadlines',deadBody));
   const row2=[];
   if(enabled('goals'))row2.push(card('Active goals',goalsBody));
+  if(enabled('projects'))row2.push(card('Project status',projBody));
   if(enabled('macros'))row2.push(card('Nutrition today',nutBody));
   if(enabled('habits'))row2.push(card('Consistency · 14d',consBody));
-  if(enabled('sleep'))row2.push(card('Sleep',sleepBody));
-  if(enabled('workouts')||enabled('running'))row2.push(card('Fitness this week',fitBody));
+  if(enabled('habits'))row2.push(card('Today’s habits',checklistBody));
 
   return '<button class="tv-exit" data-act="tv-exit" aria-label="Exit TV mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>'+
     '<div class="tv-hero">'+topo+
@@ -1001,6 +1000,8 @@ function render(){
   // Shell already exists — update in place so the sidebar keeps its scroll position.
   const h1=document.querySelector('.topbar h1');
   if(h1)h1.textContent=TITLES[ui.view];
+  const tvb=document.querySelector('.topbar .tv-open-btn');
+  if(tvb)tvb.style.display=(ui.view==='overview')?'':'none';
   refreshNav();
   view.innerHTML=VIEWS[ui.view]();
   dedupeHeader();
@@ -1033,7 +1034,7 @@ function vOverview(){
   const activeGoals=S().goals.filter(g=>goalPct(g)<100);
   const up=upcoming().slice(0,5);
   const openTodos=S().todos.filter(x=>!x.done);
-  const prio=openTodos.filter(x=>x.priority==='high').concat(openTodos.filter(x=>x.priority!=='high'&&x.due&&diffDays(x.due,t)<=2)).slice(0,5);
+  const prio=openTodos.filter(x=>x.priority==='high').concat(openTodos.filter(x=>x.priority!=='high'&&x.due&&diffDays(x.due,t)<=2)).concat(openTodos.filter(x=>x.priority!=='high'&&!(x.due&&diffDays(x.due,t)<=2))).slice(0,5);
   const reading=S().reading.filter(r=>r.status==='reading');
   const hero=Math.max(hs.pct, hs.total?0:0);
   const greet=(new Date().getHours()<12?'Good morning':new Date().getHours()<18?'Good afternoon':'Good evening');
