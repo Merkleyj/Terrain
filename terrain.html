@@ -365,6 +365,7 @@ body.tv-on{overflow:hidden}
 .tv-hero-top{position:relative;display:flex;justify-content:space-between;align-items:center;gap:2vw}
 .tv-hl-wrap{display:flex;align-items:center;gap:1.6vw;min-width:0}
 .tv-clock{font-family:var(--serif);font-weight:600;font-size:7.6vh;line-height:.9;letter-spacing:-.02em}
+.tv-ampm{font-family:var(--sans);font-size:.32em;font-weight:600;letter-spacing:.03em;margin-left:.14em;opacity:.85;vertical-align:.55em}
 .tv-hero-sub{font-size:2.3vh;font-weight:600;line-height:1.28}
 .tv-hero-sub div:last-child{opacity:.82;font-weight:500}
 .tv-hr-wrap{display:flex;align-items:center;gap:2.2vw;flex:none}
@@ -399,7 +400,7 @@ body.tv-on{overflow:hidden}
 .tv-prog .bar-fill{border-radius:1vh}
 .tv-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:.7vh;margin-bottom:1.2vh}
 .tv-sq{aspect-ratio:1;border-radius:.5vh;background:var(--track)}
-.tv-sq.today{outline:.3vh solid var(--clay);outline-offset:.2vh}
+.tv-sq.today{box-shadow:inset 0 0 0 .3vh var(--clay)}
 .tv-consft{display:flex;justify-content:space-between;align-items:center;font-size:1.75vh;font-weight:600;margin-top:auto;padding-top:1vh;border-top:1px solid var(--line)}
 .tv-3row{display:flex;justify-content:space-around;gap:1vw;text-align:center;margin-bottom:1.3vh}
 .tv-3n{font-family:var(--serif);font-size:3.2vh;font-weight:600;line-height:1}
@@ -859,9 +860,10 @@ function qaRerender(){const el=document.getElementById('qa-sheet');if(el)el.inne
 function openQa(){closeMore();ui.qaMode='main';ui.qaOpen=true;const el=document.getElementById('qa-sheet');if(el){el.innerHTML=qaHtml();el.classList.add('open');}document.body.classList.add('mobmore-lock');}
 function closeQa(){ui.qaOpen=false;const el=document.getElementById('qa-sheet');if(el)el.classList.remove('open');document.body.classList.remove('mobmore-lock');}
 /* ---------- TV dashboard mode (glanceable, non-interactive, no scroll) ---------- */
+function tvClockStr(now){let h=now.getHours();const ap=h<12?'AM':'PM';h=h%12||12;return h+':'+String(now.getMinutes()).padStart(2,'0')+'<span class="tv-ampm">'+ap+'</span>';}
 function tvHtml(){
   const t=todayStr(),now=new Date(),wk=weekSun(t);
-  const clock=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const clock=tvClockStr(now);
   const dateStr=DOW[now.getDay()]+', '+MONL[now.getMonth()]+' '+now.getDate();
   const greet=(now.getHours()<12?'Good morning':now.getHours()<18?'Good afternoon':'Good evening')+(S().settings&&S().settings.name?', '+esc(S().settings.name):'');
   const hs=habitStat(t),streak=currentStreak(),tB=big3Of(t),mt=macroTotals(t),mg=S().macroGoals;
@@ -897,7 +899,7 @@ function tvHtml(){
   if(enabled('habits')){hstats.push(hstat(streak,'Streak'));hstats.push(hstat(hs.done+'/'+hs.total,'Habits'));}
   if(enabled('workouts'))hstats.push(hstat(wkWk,'Workouts'));
   if(enabled('running'))hstats.push(hstat(Math.round(wkMi*10)/10,'Miles'));
-  if(enabled('sleep')&&sl7.length)hstats.push(hstat(fmtDur(Math.round(slAvg)),'Avg sleep'));
+  if(enabled('sleep'))hstats.push(hstat(sl7.length?fmtDur(Math.round(slAvg)):'—','Avg sleep'));
   const topo='<svg class="tv-topo" viewBox="0 0 400 200" preserveAspectRatio="none">'+[0,1,2,3,4,5].map(i=>'<path d="M-20 '+(30+i*30)+' C 80 '+(10+i*30)+', 160 '+(60+i*30)+', 240 '+(30+i*30)+' S 380 '+(50+i*30)+', 440 '+(25+i*30)+'" fill="none" stroke="#fff" stroke-width="1.4"/>').join('')+'</svg>';
   const R=46,C=2*Math.PI*R;
   const ring=enabled('habits')?'<div class="tv-ring"><svg viewBox="0 0 108 108"><circle cx="54" cy="54" r="'+R+'" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="9"/><circle cx="54" cy="54" r="'+R+'" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+(C-C*hs.pct/100)+'" transform="rotate(-90 54 54)"/></svg><div class="tv-ringc"><b>'+hs.pct+'%</b></div></div>':'';
@@ -910,7 +912,7 @@ function tvHtml(){
   if(enabled('projects'))row2.push(card('Project status',projBody));
   if(enabled('macros'))row2.push(card('Nutrition today',nutBody));
   if(enabled('habits'))row2.push(card('Consistency · 14d',consBody));
-  if(enabled('habits'))row2.push(card('Today’s habits',checklistBody));
+  if(enabled('habits'))row2.push(card('Daily Habits',checklistBody));
 
   return '<button class="tv-exit" data-act="tv-exit" aria-label="Exit TV mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>'+
     '<div class="tv-hero">'+topo+
@@ -925,7 +927,7 @@ function tvHtml(){
 function tvTick(){
   if(!ui.tv)return;
   const now=new Date(),c=document.getElementById('tv-clock');
-  if(c)c.textContent=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  if(c)c.innerHTML=tvClockStr(now);
   if(now.getSeconds()===0){const tvr=document.getElementById('tv-root');if(tvr)tvr.innerHTML=tvHtml();} // refresh data each minute
 }
 function enterTV(){
