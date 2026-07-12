@@ -1936,7 +1936,7 @@ function vRunning(){
     '<input class="inp" type="number" inputmode="decimal" id="run-mi" placeholder="Miles" step="0.1" min="0" style="flex:1;min-width:90px">'+
     '<input class="inp" id="run-time" placeholder="Time \u2014 48:30 or 1:52:00" data-enter="run-add" style="flex:1.4;min-width:150px">'+
     '<button class="btn primary sm" data-act="run-add">'+svg(I.plus)+'Add</button></div></div>';
-  const list=runs.length?runs.slice(0,20).map(r=>'<div class="row" style="padding:9px 2px"><div style="width:8px;height:8px;border-radius:50%;background:var(--wheat);flex:none"></div><div class="txt"><div class="t" style="font-size:13.5px">'+(Math.round(r.mi*10)/10)+' mi <span class="faint">\u00b7 '+fmtDL(r.date)+'</span></div></div><span class="mono" style="font-size:12px;color:var(--ink-soft)">'+fmtSec(r.sec)+' \u00b7 '+paceStr(r.sec,r.mi)+'</span><button class="icon-btn del" data-act="run-del" data-id="'+r.id+'">'+svg(I.trash)+'</button></div>').join(''):emptyBox('No runs yet. Log your first one above.','route');
+  const list=runs.length?runs.slice(0,20).map(r=>'<div class="row" style="padding:9px 2px"><div style="width:8px;height:8px;border-radius:50%;background:var(--wheat);flex:none"></div><div class="txt"><div class="t" style="font-size:13.5px">'+(Math.round(r.mi*10)/10)+' mi <span class="faint">\u00b7 '+fmtDL(r.date)+'</span></div></div><span class="mono" style="font-size:12px;color:var(--ink-soft)">'+fmtSec(r.sec)+' \u00b7 '+paceStr(r.sec,r.mi)+'</span><button class="icon-btn" data-act="run-edit" data-id="'+r.id+'" aria-label="edit run">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="run-del" data-id="'+r.id+'">'+svg(I.trash)+'</button></div>').join(''):emptyBox('No runs yet. Log your first one above.','route');
   let maxW=0;const wksArr=[];
   for(let i=7;i>=0;i--){const ws=addDays(wk,-7*i);const mi=S().runs.filter(r=>weekSun(r.date)===ws).reduce((a,r)=>a+r.mi,0);wksArr.push({ws,mi});maxW=Math.max(maxW,mi);}
   const bars=wksArr.map(w=>'<div class="wkcol" title="Week of '+fmtD(w.ws)+' \u00b7 '+(Math.round(w.mi*10)/10)+' mi"><div class="wkbar" style="height:'+(maxW?Math.max(3,w.mi/maxW*100):3)+'%'+(w.ws===wk?';background:var(--clay)':'')+'"></div></div>').join('');
@@ -2498,7 +2498,7 @@ function openModal(opts){
     let inp;
     if(fl.type==='textarea')inp='<textarea class="inp" data-k="'+fl.key+'" placeholder="'+esc(fl.placeholder||'')+'">'+esc(fl.value||'')+'</textarea>';
     else if(fl.type==='select')inp='<select class="inp" data-k="'+fl.key+'">'+fl.options.map(o=>'<option value="'+esc(o.v)+'"'+(String(fl.value)===String(o.v)?' selected':'')+'>'+esc(o.l)+'</option>').join('')+'</select>';
-    else inp='<input class="inp" data-k="'+fl.key+'" type="'+(fl.type||'text')+'" value="'+esc(fl.value==null?'':fl.value)+'" placeholder="'+esc(fl.placeholder||'')+'"'+(fl.type==='number'?' inputmode="numeric"':'')+'>';
+    else inp='<input class="inp" data-k="'+fl.key+'" type="'+(fl.type||'text')+'" value="'+esc(fl.value==null?'':fl.value)+'" placeholder="'+esc(fl.placeholder||'')+'"'+(fl.type==='number'?' inputmode="'+(fl.dec?'decimal':'numeric')+'" step="'+(fl.dec?'any':'1')+'"':'')+'>';
     return '<div class="field'+(fl.half?' half':'')+'"><label>'+esc(fl.label)+'</label>'+inp+'</div>';
   });
   // group halves into rows
@@ -2543,7 +2543,7 @@ const actions={
   'qa-wk-pick'(el){const id=el.dataset.id;closeQa();ui.session={workoutId:id,date:todayStr(),sets:[]};ui.view='workouts';render();window.scrollTo(0,0);},
   'qa-sk-pick'(el){const id=el.dataset.id;closeQa();ui.view='skills';startSkTimer(id);window.scrollTo(0,0);toast('Timer started');},
   'qa-run'(){closeQa();openModal({title:'Log a run',ok:'Save',fields:[
-    {key:'mi',label:'Miles',type:'number',placeholder:'3.1',half:true},
+    {key:'mi',label:'Miles',type:'number',dec:true,placeholder:'3.1',half:true},
     {key:'time',label:'Time (mm:ss)',placeholder:'28:30',half:true},
     {key:'date',label:'Date',type:'date',value:todayStr()}
   ],onSave(v){const mi=parseFloat(v.mi);if(!mi||mi<=0){toast('Enter the miles');return;}const sec=parseTimeStr(v.time);if(!sec){toast('Enter the time — like 28:30');return;}S().runs.push({id:uid(),date:v.date||todayStr(),mi:Math.round(mi*100)/100,sec});commit();toast('Run logged');}});},
@@ -2660,6 +2660,11 @@ const actions={
     S().runs.push({id:uid(),date:d,mi:Math.round(mi*100)/100,sec});commit();
   },
   'run-del'(el){const i=S().runs.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().runs.splice(i,1);commit();toast('Run deleted',()=>{S().runs.splice(Math.min(i,S().runs.length),0,rm);commit();});},
+  'run-edit'(el){const r=S().runs.find(x=>x.id===el.dataset.id);if(!r)return;openModal({title:'Edit run',ok:'Save',fields:[
+    {key:'mi',label:'Miles',type:'number',dec:true,value:r.mi,half:true},
+    {key:'time',label:'Time (mm:ss)',value:fmtSec(r.sec),half:true},
+    {key:'date',label:'Date',type:'date',value:r.date}
+  ],onSave(v){const mi=parseFloat(v.mi);if(!mi||mi<=0){toast('Enter the miles');return;}const sec=parseTimeStr(v.time);if(!sec){toast('Enter the time — like 28:30');return;}r.mi=Math.round(mi*100)/100;r.sec=sec;r.date=v.date||r.date;commit();toast('Run updated');}});},
   'plan-build'(){openModal({title:'Build training plan',ok:'Generate',fields:[
     {key:'date',label:'Race date',type:'date',value:''},
     {key:'dist',label:'Distance',type:'select',value:'marathon',half:true,options:[{v:'marathon',l:'Marathon \u00b7 26.2'},{v:'half',l:'Half marathon \u00b7 13.1'}]},
