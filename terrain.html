@@ -199,6 +199,13 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 /* calendar */
 .cal-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .cal-title{font-family:var(--serif);font-weight:600;font-size:20px;letter-spacing:-.01em;min-width:172px}
+.cal-modes{display:flex;gap:6px}
+.cal-week{grid-template-columns:repeat(7,1fr)}
+.cal-wkcell{min-height:190px}
+.cal-wkhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.cal-wkdow{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+.cal-week .cal-evs{display:flex;flex-direction:column;gap:3px}
+.cal-week .cal-more{display:inline-block}
 .cal-legend{display:flex;gap:14px;flex-wrap:wrap;margin-left:auto}
 .cal-legend .lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);font-weight:600}
 .cal-legend .lg i{width:9px;height:9px;border-radius:3px;display:inline-block}
@@ -238,6 +245,8 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
   .cal-grid,.cal-dow{gap:4px}
   .cal-cell{min-height:74px;padding:5px 4px;border-radius:9px}
   .cal-evs,.cal-more{display:none}
+  .cal-week{grid-template-columns:1fr}
+  .cal-wkcell{min-height:auto}
   .cal-dots{display:flex}
   .cal-foot{font-size:8.5px;gap:5px;flex-wrap:wrap}
   .cal-legend{width:100%;margin-left:0}
@@ -706,7 +715,7 @@ function enabled(id){
 
 /* ---------- transient ui state ---------- */
 const ui={view:'overview',moreOpen:false,qaOpen:false,qaMode:'main',tv:false,tvClock:null,habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
-  calMonth:firstOfMonth(todayStr()),session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',focus:null,fTimer:null,skTimer:null,skTick:null,
+  calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',focus:null,fTimer:null,skTimer:null,skTick:null,
   todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all'};
 
 /* ---------- computed ---------- */
@@ -1206,7 +1215,31 @@ function calCell(dateStr,inMonth){
     (foot?'<span class="cal-foot">'+foot+'</span>':'')+
     '</button>';
 }
+function calWeekCell(dateStr){
+  const isToday=dateStr===todayStr(),d=parseD(dateStr),evs=dayEvents(dateStr);
+  const evHtml=evs.slice(0,8).map(e=>{const m=CAL_SRC[e.src];return '<span class="cal-ev" style="background:var(--'+m.color+'-bg);color:var(--'+m.color+')'+(e.done?';opacity:.55;text-decoration:line-through':'')+'">'+esc(e.text)+'</span>';}).join('');
+  const more=evs.length>8?'<span class="cal-more">+'+(evs.length-8)+' more</span>':'';
+  let foot='';
+  if(enabled('habits')&&(hasHabitData(dateStr)||isToday)){const hs=habitStat(dateStr);const o=hs.total?(hs.pct===0?.18:0.25+hs.pct/100*0.75):.18;foot+='<span class="cf" title="Checklist '+hs.pct+'%"><i style="background:rgba(110,122,90,'+o.toFixed(2)+')"></i>'+hs.done+'/'+hs.total+'</span>';}
+  if(enabled('macros')&&hasMacroData(dateStr)){const mt=macroTotals(dateStr);foot+='<span class="cf" title="Calories logged"><i style="background:var(--clay)"></i>'+Math.round(mt.cal)+'</span>';}
+  return '<button class="cal-cell cal-wkcell'+(isToday?' today':'')+'" data-act="cal-day" data-date="'+dateStr+'">'+
+    '<span class="cal-wkhead"><span class="cal-wkdow">'+DOW[d.getDay()]+'</span><span class="cal-daynum">'+d.getDate()+'</span></span>'+
+    (evHtml||more?'<span class="cal-evs">'+evHtml+more+'</span>':'')+
+    (foot?'<span class="cal-foot" style="margin-top:auto">'+foot+'</span>':'')+
+    '</button>';
+}
 function vCalendar(){
+  const legend=Object.keys(CAL_SRC).filter(k=>k==='finance'?(enabled('bills')||enabled('savings')):enabled(CAL_SRC[k].view)).map(k=>'<span class="lg"><i style="background:var(--'+CAL_SRC[k].color+')"></i>'+CAL_SRC[k].label+'</span>').join('');
+  const head='<div class="sect-head"><div class="lead"><h2>Calendar</h2><p>Everything with a date — to-dos, goal targets and project tasks — in one place, colour-coded by source. Tap any day to look closer or add something new.</p></div>'+
+    '<div class="actions"><button class="btn primary" data-act="cal-add" data-date="'+todayStr()+'">'+svg(I.plus)+'Add entry</button></div></div>';
+  const modes='<div class="cal-modes"><button class="chip'+(ui.calMode==='week'?'':' on')+'" data-act="cal-mode" data-id="month">Month</button><button class="chip'+(ui.calMode==='week'?' on':'')+'" data-act="cal-mode" data-id="week">Week</button></div>';
+  if(ui.calMode==='week'){
+    const ws=ui.calWeek,wsD=parseD(ws),weD=parseD(addDays(ws,6));
+    const title=wsD.getMonth()===weD.getMonth()?MONL[wsD.getMonth()]+' '+wsD.getDate()+'–'+weD.getDate()+', '+weD.getFullYear():MON[wsD.getMonth()]+' '+wsD.getDate()+' – '+MON[weD.getMonth()]+' '+weD.getDate()+', '+weD.getFullYear();
+    const wcells=[];for(let i=0;i<7;i++)wcells.push(calWeekCell(addDays(ws,i)));
+    const wtool='<div class="cal-toolbar"><div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous week">'+svg(I.chevL)+'</button><span class="cal-title">'+title+'</span><button class="icon-btn" data-act="cal-next" aria-label="next week">'+svg(I.chevR)+'</button><button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+modes+'<div class="cal-legend">'+legend+'</div></div>';
+    return head+'<div class="card">'+wtool+'<div class="cal-grid cal-week">'+wcells.join('')+'</div></div>';
+  }
   const m=parseD(ui.calMonth), year=m.getFullYear(), month=m.getMonth();
   const startDow=m.getDay();
   const daysInMonth=new Date(year,month+1,0).getDate();
@@ -1214,17 +1247,8 @@ function vCalendar(){
   const gridStart=addDays(ui.calMonth,-startDow);
   const cells=[];
   for(let i=0;i<totalCells;i++){const ds=addDays(gridStart,i);cells.push(calCell(ds,parseD(ds).getMonth()===month));}
-  const legend=Object.keys(CAL_SRC).filter(k=>k==='finance'?(enabled('bills')||enabled('savings')):enabled(CAL_SRC[k].view)).map(k=>'<span class="lg"><i style="background:var(--'+CAL_SRC[k].color+')"></i>'+CAL_SRC[k].label+'</span>').join('');
   const dow=DOW.map(d=>'<span>'+d+'</span>').join('');
-  const head='<div class="sect-head"><div class="lead"><h2>Calendar</h2><p>Everything with a date — to-dos, goal targets and project tasks — in one place, colour-coded by source. Tap any day to look closer or add something new.</p></div>'+
-    '<div class="actions"><button class="btn primary" data-act="cal-add" data-date="'+todayStr()+'">'+svg(I.plus)+'Add entry</button></div></div>';
-  const toolbar='<div class="cal-toolbar">'+
-      '<div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous month">'+svg(I.chevL)+'</button>'+
-      '<span class="cal-title">'+MONL[month]+' '+year+'</span>'+
-      '<button class="icon-btn" data-act="cal-next" aria-label="next month">'+svg(I.chevR)+'</button>'+
-      '<button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+
-      '<div class="cal-legend">'+legend+'</div>'+
-    '</div>';
+  const toolbar='<div class="cal-toolbar"><div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous month">'+svg(I.chevL)+'</button><span class="cal-title">'+MONL[month]+' '+year+'</span><button class="icon-btn" data-act="cal-next" aria-label="next month">'+svg(I.chevR)+'</button><button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+modes+'<div class="cal-legend">'+legend+'</div></div>';
   return head+'<div class="card">'+toolbar+'<div class="cal-dow">'+dow+'</div><div class="cal-grid">'+cells.join('')+'</div></div>';
 }
 
@@ -2535,9 +2559,10 @@ const actions={
   ],onSave(v){if(!v.text)return;S().inbox.push({id:uid(),text:v.text,created:todayStr()});commit();toast('Captured to Inbox');}});},
 
   /* calendar */
-  'cal-prev'(){ui.calMonth=shiftMonth(ui.calMonth,-1);render();},
-  'cal-next'(){ui.calMonth=shiftMonth(ui.calMonth,1);render();},
-  'cal-today'(){ui.calMonth=firstOfMonth(todayStr());render();},
+  'cal-mode'(el){ui.calMode=el.dataset.id==='week'?'week':'month';render();},
+  'cal-prev'(){if(ui.calMode==='week')ui.calWeek=addDays(ui.calWeek,-7);else ui.calMonth=shiftMonth(ui.calMonth,-1);render();},
+  'cal-next'(){if(ui.calMode==='week')ui.calWeek=addDays(ui.calWeek,7);else ui.calMonth=shiftMonth(ui.calMonth,1);render();},
+  'cal-today'(){ui.calMonth=firstOfMonth(todayStr());ui.calWeek=weekSun(todayStr());render();},
   'cal-day'(el){openDay(el.dataset.date);},
   'cal-add'(el){openAddEntry(el.dataset.date||todayStr());},
   'cal-goto'(el){closeModal();ui.view=el.dataset.view;render();window.scrollTo(0,0);},
