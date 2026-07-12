@@ -353,34 +353,41 @@ body.mobmore-lock{overflow:hidden}
 #qa-fab{display:none;position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom,0px));z-index:45;width:54px;height:54px;border-radius:50%;border:none;background:var(--sage);color:#fff;box-shadow:0 8px 22px -6px rgba(44,42,36,.5);align-items:center;justify-content:center;cursor:pointer;transition:transform .12s}
 #qa-fab svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round}
 #qa-fab:active{transform:scale(.94)}
-/* TV dashboard mode */
-.tv-root{position:fixed;inset:0;z-index:2000;display:none;flex-direction:column;background:#1e1d19;color:#F4F0E8;font-family:var(--sans);padding:3.4vh 3vw;overflow:hidden}
+/* TV dashboard mode — matches the app's Overview look */
+.tv-root{position:fixed;inset:0;z-index:2000;display:none;flex-direction:column;background:var(--paper);color:var(--ink);font-family:var(--sans);padding:2.6vh 2.6vw;overflow:hidden}
 .tv-root.show{display:flex}
 body.tv-on{overflow:hidden}
-.tv-exit{position:absolute;top:2.4vh;right:2vw;width:4.4vh;height:4.4vh;min-width:34px;min-height:34px;border:none;border-radius:50%;background:rgba(255,255,255,.1);color:#F4F0E8;display:grid;place-items:center;cursor:pointer;opacity:.35;transition:opacity .2s;z-index:2}
+.tv-exit{position:absolute;top:2.2vh;right:2vw;width:4.2vh;height:4.2vh;min-width:34px;min-height:34px;border:none;border-radius:50%;background:var(--surface-2);color:var(--ink-soft);display:grid;place-items:center;cursor:pointer;opacity:.5;transition:opacity .2s;z-index:3;box-shadow:var(--shadow-sm)}
 .tv-exit:hover{opacity:1}
-.tv-exit svg{width:2.4vh;height:2.4vh;min-width:18px;min-height:18px;stroke:currentColor;fill:none}
-.tv-head{display:flex;align-items:flex-start;justify-content:space-between;gap:2vw;margin-bottom:2.6vh;padding-right:6vh}
-.tv-clock{font-family:var(--serif);font-weight:600;font-size:9vh;line-height:.92;letter-spacing:-.02em}
-.tv-date{font-size:2.5vh;color:#C9C3B4;margin-top:.8vh;font-weight:500}
-.tv-ring{text-align:right;flex:none}
-.tv-ringn{font-family:var(--serif);font-weight:600;font-size:6.5vh;line-height:1;color:var(--sage-soft)}
-.tv-ringl{font-size:1.8vh;color:#9C9483;text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-top:.4vh}
-.tv-stats{display:flex;gap:4.5vw;margin-bottom:2.6vh;flex-wrap:wrap}
-.tv-stat .tv-sn{font-family:var(--serif);font-weight:600;font-size:4.6vh;line-height:1}
-.tv-stat .tv-sl{font-size:1.7vh;color:#9C9483;text-transform:uppercase;letter-spacing:.09em;font-weight:600;margin-top:.5vh}
+.tv-exit svg{width:2.2vh;height:2.2vh;min-width:16px;min-height:16px;stroke:currentColor;fill:none}
+.tv-hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#71805B 0%,#5E6B4A 62%,#4F5A3E 100%);color:#fff;border-radius:2vh;padding:2.6vh 2.6vw;margin-bottom:2.2vh;flex:none}
+.tv-topo{position:absolute;inset:0;width:100%;height:100%;opacity:.18}
+.tv-hero-top{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:2vw}
+.tv-clock{font-family:var(--serif);font-weight:600;font-size:8vh;line-height:.9;letter-spacing:-.02em}
+.tv-hero-sub{font-size:2.4vh;opacity:.85;margin-top:.6vh;font-weight:500}
+.tv-ring{position:relative;width:12vh;height:12vh;flex:none}
+.tv-ring svg{width:100%;height:100%}
+.tv-ringc{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.tv-ringc b{font-family:var(--serif);font-size:3.4vh;font-weight:600;line-height:1}
+.tv-ringc span{font-size:1.3vh;text-transform:uppercase;letter-spacing:.1em;opacity:.85}
+.tv-hstats{position:relative;display:flex;gap:3.2vw;margin-top:2.4vh;flex-wrap:wrap}
+.tv-hstat .tv-hn{font-family:var(--serif);font-size:4vh;font-weight:600;line-height:1;display:flex;align-items:center;gap:.6vh}
+.tv-hstat .tv-hn svg{width:3.2vh;height:3.2vh;stroke:currentColor;fill:none}
+.tv-hstat .tv-hn .tv-sub{font-size:.55em;opacity:.7;margin-left:.1em}
+.tv-hstat .tv-hl{font-size:1.5vh;opacity:.82;text-transform:uppercase;letter-spacing:.08em;margin-top:.7vh;font-weight:600}
 .tv-grid{flex:1;display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:2vw;min-height:0}
-.tv-panel{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);border-radius:1.6vh;padding:2.4vh 1.6vw;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.tv-ph{font-size:1.9vh;text-transform:uppercase;letter-spacing:.14em;color:var(--wheat);font-weight:700;margin-bottom:1.4vh;flex:none}
-.tv-item{display:flex;align-items:center;gap:1.4vh;font-size:2.9vh;font-weight:500;padding:1.15vh 0;border-bottom:1px solid rgba(255,255,255,.06);line-height:1.15}
+.tv-card{background:var(--surface);border:1px solid var(--line);border-radius:1.6vh;padding:2.2vh 1.6vw;display:flex;flex-direction:column;min-height:0;overflow:hidden;box-shadow:var(--shadow-sm)}
+.tv-ph{font-family:var(--serif);font-size:2.6vh;font-weight:600;color:var(--ink);margin-bottom:1.4vh;flex:none;letter-spacing:-.01em}
+.tv-cardbody{flex:1;min-height:0;overflow:hidden}
+.tv-item{display:flex;align-items:center;gap:1.4vh;font-size:2.6vh;font-weight:500;padding:1.05vh 0;border-bottom:1px solid var(--line);line-height:1.2}
 .tv-item:last-child{border-bottom:none}
-.tv-dot{width:1.5vh;height:1.5vh;min-width:11px;min-height:11px;border-radius:50%;border:.28vh solid var(--sage-soft);box-sizing:border-box;flex:none}
-.tv-dot.on{background:var(--sage-soft)}
-.tv-done{text-decoration:line-through;color:#8A8578}
-.tv-tag{margin-left:auto;font-size:1.9vh;font-weight:700;color:#B7AF9C;white-space:nowrap;padding-left:1vh}
-.tv-tag.over{color:var(--clay-soft)}
-.tv-next{margin-top:1.4vh;padding-top:1.4vh;border-top:1px solid rgba(255,255,255,.08);font-size:2.2vh;color:var(--wheat);font-weight:600}
-.tv-empty{font-size:2.4vh;color:#8A8578;padding:1.4vh 0}
+.tv-dot{width:1.4vh;height:1.4vh;min-width:10px;min-height:10px;border-radius:50%;border:.26vh solid var(--sage);box-sizing:border-box;flex:none}
+.tv-dot.on{background:var(--sage)}
+.tv-done{text-decoration:line-through;color:var(--ink-faint)}
+.tv-tag{margin-left:auto;font-size:1.8vh;font-weight:700;color:var(--ink-soft);white-space:nowrap;padding-left:1vh}
+.tv-tag.over{color:var(--clay)}
+.tv-next{margin-top:1.2vh;padding-top:1.2vh;border-top:1px solid var(--line);font-size:2.1vh;color:var(--sage);font-weight:600}
+.tv-empty{font-size:2.2vh;color:var(--ink-faint);padding:1.2vh 0}
 @media(max-width:860px){
   #qa-fab{display:flex}
   .tv-open-btn{display:none}
@@ -848,20 +855,30 @@ function tvHtml(){
   const todosHtml=todoList.length?todoList.map(x=>{const rd=x.due?relDue(x.due):null;const tag=rd?'<span class="tv-tag'+(rd.cls==='over'?' over':'')+'">'+rd.txt+'</span>':(x.priority==='high'?'<span class="tv-tag over">High</span>':'');return '<div class="tv-item"><span class="tv-dot"></span><span>'+esc(x.text)+'</span>'+tag+'</div>';}).join(''):'<div class="tv-empty">Nothing urgent — clear runway.</div>';
   const evs=dayEvents(t).filter(e=>e.src!=='todo').slice(0,7);
   const schedHtml=evs.length?evs.map(e=>{const m=CAL_SRC[e.src];return '<div class="tv-item"><span class="tv-dot" style="background:var(--'+m.color+');border-color:var(--'+m.color+')"></span><span class="'+(e.done?'tv-done':'')+'">'+esc(e.text)+'</span><span class="tv-tag" style="color:var(--'+m.color+')">'+m.label+'</span></div>';}).join(''):'<div class="tv-empty">Nothing scheduled.</div>';
+  const wk=weekSun(t),mt=macroTotals(t),sl=S().sleepLog.slice().sort((a,b)=>a.date<b.date?1:-1)[0];
   const stats=[];
-  if(enabled('habits')){stats.push(['Streak',streak]);stats.push(['Habits',hs.done+'/'+hs.total]);}
-  if(enabled('goals'))stats.push(['Active goals',S().goals.filter(g=>goalPct(g)<100).length]);
-  if(enabled('sleep')){const sl=S().sleepLog.slice().sort((a,b)=>a.date<b.date?1:-1)[0];if(sl)stats.push(['Last sleep',fmtDur(sl.dur)]);}
-  if(enabled('macros')){const mt=macroTotals(t),mg=S().macroGoals;stats.push(['Calories',Math.round(mt.cal)+'/'+mg.cal]);}
-  const statsHtml=stats.map(s=>'<div class="tv-stat"><div class="tv-sn">'+s[1]+'</div><div class="tv-sl">'+s[0]+'</div></div>').join('');
+  if(enabled('habits')){stats.push([svg(I.flame,'')+streak,'Day streak']);stats.push([hs.done+'<span class="tv-sub">/'+hs.total+'</span>','Habits done']);}
+  if(enabled('goals'))stats.push([S().goals.filter(g=>goalPct(g)<100).length,'Active goals']);
+  if(enabled('projects')&&S().projects.length)stats.push([S().projects.length,'Projects']);
+  if(enabled('sleep')&&sl)stats.push([fmtDur(sl.dur),'Last night']);
+  if(enabled('macros'))stats.push([Math.round(mt.cal),'Calories']);
+  if(enabled('workouts'))stats.push([S().workoutLog.filter(l=>weekSun(l.date)===wk).length,'Workouts wk']);
+  if(enabled('running'))stats.push([Math.round(S().runs.filter(r=>weekSun(r.date)===wk).reduce((a,r)=>a+r.mi,0)*10)/10,'Miles wk']);
+  if(enabled('skills'))stats.push([(Math.round(S().skills.reduce((a,s)=>a+(s.log||[]).filter(x=>weekSun(x.date)===wk).reduce((b,x)=>b+(+x.min||0),0),0)/6)/10)+'h','Practice wk']);
+  if(enabled('bucket'))stats.push([S().bucket.filter(b=>b.done).length+'<span class="tv-sub">/'+S().bucket.length+'</span>','Bucket list']);
+  const statsHtml=stats.map(s=>'<div class="tv-hstat"><div class="tv-hn">'+s[0]+'</div><div class="tv-hl">'+s[1]+'</div></div>').join('');
+  const topo='<svg class="tv-topo" viewBox="0 0 400 200" preserveAspectRatio="none">'+[0,1,2,3,4,5].map(i=>'<path d="M-20 '+(30+i*30)+' C 80 '+(10+i*30)+', 160 '+(60+i*30)+', 240 '+(30+i*30)+' S 380 '+(50+i*30)+', 440 '+(25+i*30)+'" fill="none" stroke="#fff" stroke-width="1.4"/>').join('')+'</svg>';
+  const R=52,C=2*Math.PI*R;
+  const ring=enabled('habits')?'<div class="tv-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="'+R+'" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="10"/><circle cx="60" cy="60" r="'+R+'" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+(C-C*hs.pct/100)+'" transform="rotate(-90 60 60)"/></svg><div class="tv-ringc"><b>'+hs.pct+'%</b><span>today</span></div></div>':'';
   return '<button class="tv-exit" data-act="tv-exit" aria-label="Exit TV mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>'+
-    '<div class="tv-head"><div><div class="tv-clock" id="tv-clock">'+clock+'</div><div class="tv-date">'+dateStr+' · '+greet+'</div></div>'+
-      (enabled('habits')?'<div class="tv-ring"><div class="tv-ringn">'+hs.pct+'%</div><div class="tv-ringl">habits today</div></div>':'')+'</div>'+
-    (statsHtml?'<div class="tv-stats">'+statsHtml+'</div>':'')+
+    '<div class="tv-hero">'+topo+
+      '<div class="tv-hero-top"><div><div class="tv-clock" id="tv-clock">'+clock+'</div><div class="tv-hero-sub">'+dateStr+' · '+greet+'</div></div>'+ring+'</div>'+
+      (statsHtml?'<div class="tv-hstats">'+statsHtml+'</div>':'')+
+    '</div>'+
     '<div class="tv-grid">'+
-      '<div class="tv-panel"><div class="tv-ph">Today’s Big 3</div>'+big3+next+'</div>'+
-      '<div class="tv-panel"><div class="tv-ph">To-Do</div>'+todosHtml+'</div>'+
-      '<div class="tv-panel"><div class="tv-ph">Schedule</div>'+schedHtml+'</div>'+
+      '<div class="tv-card"><div class="tv-ph">Today’s Big 3</div><div class="tv-cardbody">'+big3+next+'</div></div>'+
+      '<div class="tv-card"><div class="tv-ph">To-Do</div><div class="tv-cardbody">'+todosHtml+'</div></div>'+
+      '<div class="tv-card"><div class="tv-ph">Schedule</div><div class="tv-cardbody">'+schedHtml+'</div></div>'+
     '</div>';
 }
 function tvTick(){
@@ -987,14 +1004,21 @@ function vOverview(){
   const stripL=labels.map(l=>'<span>'+l+'</span>').join('');
 
   const slogHero=S().sleepLog.slice().sort((a,b)=>a.date<b.date?1:-1);
+  const wkH=weekSun(t);
+  const hstat=(v,l)=>'<div class="hero-stat"><div class="hn">'+v+'</div><div class="hl">'+l+'</div></div>';
   const hstats=[];
   if(enabled('habits')){
-    hstats.push('<div class="hero-stat"><div class="hn">'+svg(I.flame,'')+streak+'</div><div class="hl">Day streak</div></div>');
-    hstats.push('<div class="hero-stat"><div class="hn">'+hs.done+'<span style="font-size:14px;opacity:.7">/'+hs.total+'</span></div><div class="hl">Habits done</div></div>');
+    hstats.push(hstat(svg(I.flame,'')+streak,'Day streak'));
+    hstats.push(hstat(hs.done+'<span style="font-size:14px;opacity:.7">/'+hs.total+'</span>','Habits done'));
   }
-  if(enabled('goals'))hstats.push('<div class="hero-stat"><div class="hn">'+activeGoals.length+'</div><div class="hl">Active goals</div></div>');
-  if(enabled('sleep')&&slogHero.length)hstats.push('<div class="hero-stat"><div class="hn">'+fmtDur(slogHero[0].dur)+'</div><div class="hl">Last night</div></div>');
-  if(enabled('bucket'))hstats.push('<div class="hero-stat"><div class="hn">'+bucketDone+'<span style="font-size:14px;opacity:.7">/'+S().bucket.length+'</span></div><div class="hl">Bucket list</div></div>');
+  if(enabled('goals'))hstats.push(hstat(activeGoals.length,'Active goals'));
+  if(enabled('projects')&&S().projects.length)hstats.push(hstat(S().projects.length,'Projects'));
+  if(enabled('sleep')&&slogHero.length)hstats.push(hstat(fmtDur(slogHero[0].dur),'Last night'));
+  if(enabled('macros'))hstats.push(hstat(Math.round(mt.cal),'Calories'));
+  if(enabled('workouts'))hstats.push(hstat(S().workoutLog.filter(l=>weekSun(l.date)===wkH).length,'Workouts wk'));
+  if(enabled('running'))hstats.push(hstat(Math.round(S().runs.filter(r=>weekSun(r.date)===wkH).reduce((a,r)=>a+r.mi,0)*10)/10,'Miles wk'));
+  if(enabled('skills'))hstats.push(hstat((Math.round(S().skills.reduce((a,s)=>a+(s.log||[]).filter(x=>weekSun(x.date)===wkH).reduce((b,x)=>b+(+x.min||0),0),0)/6)/10)+'h','Practice wk'));
+  if(enabled('bucket'))hstats.push(hstat(bucketDone+'<span style="font-size:14px;opacity:.7">/'+S().bucket.length+'</span>','Bucket list'));
   const uname=S().settings&&S().settings.name?', '+esc(S().settings.name):'';
   const qpool=QUOTES.concat(enabled('vision')&&S().vision?(S().vision.identities||[]).map(x=>x.text):[]);
   const heroHtml='<div class="hero"><svg class="topo" viewBox="0 0 400 200" preserveAspectRatio="none">'+
