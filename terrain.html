@@ -353,41 +353,60 @@ body.mobmore-lock{overflow:hidden}
 #qa-fab{display:none;position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom,0px));z-index:45;width:54px;height:54px;border-radius:50%;border:none;background:var(--sage);color:#fff;box-shadow:0 8px 22px -6px rgba(44,42,36,.5);align-items:center;justify-content:center;cursor:pointer;transition:transform .12s}
 #qa-fab svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round}
 #qa-fab:active{transform:scale(.94)}
-/* TV dashboard mode — matches the app's Overview look */
-.tv-root{position:fixed;inset:0;z-index:2000;display:none;flex-direction:column;background:var(--paper);color:var(--ink);font-family:var(--sans);padding:2.6vh 2.6vw;overflow:hidden}
+/* TV dashboard mode — full glanceable board (matches Overview) */
+.tv-root{position:fixed;inset:0;z-index:2000;display:none;flex-direction:column;gap:2vh;background:var(--paper);color:var(--ink);font-family:var(--sans);padding:2.2vh 2.2vw;overflow:hidden}
 .tv-root.show{display:flex}
 body.tv-on{overflow:hidden}
-.tv-exit{position:absolute;top:2.2vh;right:2vw;width:4.2vh;height:4.2vh;min-width:34px;min-height:34px;border:none;border-radius:50%;background:var(--surface-2);color:var(--ink-soft);display:grid;place-items:center;cursor:pointer;opacity:.5;transition:opacity .2s;z-index:3;box-shadow:var(--shadow-sm)}
+.tv-exit{position:absolute;top:2vh;right:1.6vw;width:4vh;height:4vh;min-width:32px;min-height:32px;border:none;border-radius:50%;background:var(--surface-2);color:var(--ink-soft);display:grid;place-items:center;cursor:pointer;opacity:.5;transition:opacity .2s;z-index:3;box-shadow:var(--shadow-sm)}
 .tv-exit:hover{opacity:1}
-.tv-exit svg{width:2.2vh;height:2.2vh;min-width:16px;min-height:16px;stroke:currentColor;fill:none}
-.tv-hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#71805B 0%,#5E6B4A 62%,#4F5A3E 100%);color:#fff;border-radius:2vh;padding:2.6vh 2.6vw;margin-bottom:2.2vh;flex:none}
-.tv-topo{position:absolute;inset:0;width:100%;height:100%;opacity:.18}
-.tv-hero-top{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:2vw}
-.tv-clock{font-family:var(--serif);font-weight:600;font-size:8vh;line-height:.9;letter-spacing:-.02em}
-.tv-hero-sub{font-size:2.4vh;opacity:.85;margin-top:.6vh;font-weight:500}
-.tv-ring{position:relative;width:12vh;height:12vh;flex:none}
+.tv-exit svg{width:2vh;height:2vh;min-width:15px;min-height:15px;stroke:currentColor;fill:none}
+.tv-hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#71805B 0%,#5E6B4A 62%,#4F5A3E 100%);color:#fff;border-radius:1.8vh;padding:2.2vh 2.4vw;flex:none}
+.tv-topo{position:absolute;inset:0;width:100%;height:100%;opacity:.16}
+.tv-hero-top{position:relative;display:flex;justify-content:space-between;align-items:center;gap:2vw}
+.tv-hl-wrap{display:flex;align-items:center;gap:1.6vw;min-width:0}
+.tv-clock{font-family:var(--serif);font-weight:600;font-size:7.6vh;line-height:.9;letter-spacing:-.02em}
+.tv-hero-sub{font-size:2.3vh;font-weight:600;line-height:1.28}
+.tv-hero-sub div:last-child{opacity:.82;font-weight:500}
+.tv-hr-wrap{display:flex;align-items:center;gap:2.2vw;flex:none}
+.tv-hstat{text-align:center}
+.tv-hstat .tv-hn{font-family:var(--serif);font-size:3.3vh;font-weight:600;line-height:1}
+.tv-hstat .tv-hl{font-size:1.25vh;opacity:.82;text-transform:uppercase;letter-spacing:.09em;margin-top:.5vh;font-weight:600}
+.tv-ring{position:relative;width:9vh;height:9vh;flex:none}
 .tv-ring svg{width:100%;height:100%}
-.tv-ringc{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
-.tv-ringc b{font-family:var(--serif);font-size:3.4vh;font-weight:600;line-height:1}
-.tv-ringc span{font-size:1.3vh;text-transform:uppercase;letter-spacing:.1em;opacity:.85}
-.tv-hstats{position:relative;display:flex;gap:3.2vw;margin-top:2.4vh;flex-wrap:wrap}
-.tv-hstat .tv-hn{font-family:var(--serif);font-size:4vh;font-weight:600;line-height:1;display:flex;align-items:center;gap:.6vh}
-.tv-hstat .tv-hn svg{width:3.2vh;height:3.2vh;stroke:currentColor;fill:none}
-.tv-hstat .tv-hn .tv-sub{font-size:.55em;opacity:.7;margin-left:.1em}
-.tv-hstat .tv-hl{font-size:1.5vh;opacity:.82;text-transform:uppercase;letter-spacing:.08em;margin-top:.7vh;font-weight:600}
-.tv-grid{flex:1;display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:2vw;min-height:0}
-.tv-card{background:var(--surface);border:1px solid var(--line);border-radius:1.6vh;padding:2.2vh 1.6vw;display:flex;flex-direction:column;min-height:0;overflow:hidden;box-shadow:var(--shadow-sm)}
-.tv-ph{font-family:var(--serif);font-size:2.6vh;font-weight:600;color:var(--ink);margin-bottom:1.4vh;flex:none;letter-spacing:-.01em}
-.tv-cardbody{flex:1;min-height:0;overflow:hidden}
-.tv-item{display:flex;align-items:center;gap:1.4vh;font-size:2.6vh;font-weight:500;padding:1.05vh 0;border-bottom:1px solid var(--line);line-height:1.2}
-.tv-item:last-child{border-bottom:none}
-.tv-dot{width:1.4vh;height:1.4vh;min-width:10px;min-height:10px;border-radius:50%;border:.26vh solid var(--sage);box-sizing:border-box;flex:none}
-.tv-dot.on{background:var(--sage)}
+.tv-ringc{position:absolute;inset:0;display:grid;place-items:center}
+.tv-ringc b{font-family:var(--serif);font-size:2.5vh;font-weight:600}
+.tv-row{flex:1;display:grid;gap:1.6vw;min-height:0}
+.tv-card{background:var(--surface);border:1px solid var(--line);border-radius:1.4vh;padding:1.8vh 1.2vw;display:flex;flex-direction:column;min-height:0;overflow:hidden;box-shadow:var(--shadow-sm)}
+.tv-ph{font-family:var(--serif);font-size:2.3vh;font-weight:600;color:var(--ink);margin-bottom:1.1vh;flex:none;letter-spacing:-.01em}
+.tv-cardbody{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.tv-li{display:flex;align-items:center;gap:1.1vh;font-size:2vh;font-weight:500;padding:.82vh 0;border-bottom:1px solid var(--line);line-height:1.2}
+.tv-li:last-child{border-bottom:none}
+.tv-litx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tv-dot{width:1.1vh;height:1.1vh;min-width:9px;min-height:9px;border-radius:50%;border:.24vh solid var(--sage);background:var(--sage);box-sizing:border-box;flex:none}
+.tv-chk{width:2.2vh;height:2.2vh;min-width:17px;min-height:17px;border:.28vh solid var(--stone);border-radius:.5vh;background:var(--surface);display:grid;place-items:center;flex:none;box-sizing:border-box}
+.tv-chk.on{background:var(--sage);border-color:var(--sage)}
+.tv-chk svg{width:1.4vh;height:1.4vh;min-width:11px;stroke:#fff;fill:none;stroke-width:3.4}
 .tv-done{text-decoration:line-through;color:var(--ink-faint)}
-.tv-tag{margin-left:auto;font-size:1.8vh;font-weight:700;color:var(--ink-soft);white-space:nowrap;padding-left:1vh}
+.tv-tag{margin-left:auto;font-size:1.6vh;font-weight:700;color:var(--ink-soft);white-space:nowrap;padding-left:1vh;font-variant-numeric:tabular-nums}
 .tv-tag.over{color:var(--clay)}
-.tv-next{margin-top:1.2vh;padding-top:1.2vh;border-top:1px solid var(--line);font-size:2.1vh;color:var(--sage);font-weight:600}
-.tv-empty{font-size:2.2vh;color:var(--ink-faint);padding:1.2vh 0}
+.tv-empty{font-size:1.9vh;color:var(--ink-faint);padding:1vh 0}
+.tv-prog{margin-bottom:1.3vh}
+.tv-prog:last-child{margin-bottom:0}
+.tv-progt{display:flex;justify-content:space-between;align-items:baseline;font-size:1.9vh;font-weight:600;margin-bottom:.6vh;gap:1vh}
+.tv-progt>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tv-pct,.tv-mval{font-family:var(--mono);font-size:1.55vh;color:var(--ink-soft);font-weight:500;flex:none}
+.tv-prog .bar{height:1vh;border-radius:1vh}
+.tv-prog .bar-fill{border-radius:1vh}
+.tv-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:.7vh;margin-bottom:1.2vh}
+.tv-sq{aspect-ratio:1;border-radius:.5vh;background:var(--track)}
+.tv-sq.today{outline:.3vh solid var(--clay);outline-offset:.2vh}
+.tv-consft{display:flex;justify-content:space-between;align-items:center;font-size:1.75vh;font-weight:600;margin-top:auto;padding-top:1vh;border-top:1px solid var(--line)}
+.tv-3row{display:flex;justify-content:space-around;gap:1vw;text-align:center;margin-bottom:1.3vh}
+.tv-3n{font-family:var(--serif);font-size:3.2vh;font-weight:600;line-height:1}
+.tv-3l{font-size:1.25vh;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-top:.5vh}
+.tv-sbar .bar{height:1vh;border-radius:1vh}
+.tv-fchart{display:flex;align-items:flex-end;gap:.8vh;height:8vh;margin-top:auto}
+.tv-fbar{flex:1;background:var(--sage);border-radius:.5vh .5vh .2vh .2vh;min-height:.6vh}
 @media(max-width:860px){
   #qa-fab{display:flex}
   .tv-open-btn{display:none}
@@ -841,45 +860,68 @@ function openQa(){closeMore();ui.qaMode='main';ui.qaOpen=true;const el=document.
 function closeQa(){ui.qaOpen=false;const el=document.getElementById('qa-sheet');if(el)el.classList.remove('open');document.body.classList.remove('mobmore-lock');}
 /* ---------- TV dashboard mode (glanceable, non-interactive, no scroll) ---------- */
 function tvHtml(){
-  const t=todayStr(),now=new Date();
+  const t=todayStr(),now=new Date(),wk=weekSun(t);
   const clock=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   const dateStr=DOW[now.getDay()]+', '+MONL[now.getMonth()]+' '+now.getDate();
   const greet=(now.getHours()<12?'Good morning':now.getHours()<18?'Good afternoon':'Good evening')+(S().settings&&S().settings.name?', '+esc(S().settings.name):'');
-  const hs=habitStat(t),streak=currentStreak(),tB=big3Of(t);
-  const big3=tB.items.length?tB.items.map(it=>'<div class="tv-item"><span class="tv-dot'+(it.done?' on':'')+'"></span><span class="'+(it.done?'tv-done':'')+'">'+esc(it.text)+'</span></div>').join(''):'<div class="tv-empty">No Big 3 set today.</div>';
-  const next=tB.next?'<div class="tv-next">→ '+esc(tB.next)+'</div>':'';
+  const hs=habitStat(t),streak=currentStreak(),tB=big3Of(t),mt=macroTotals(t),mg=S().macroGoals;
+  const li=(col,text,tag,over,done)=>'<div class="tv-li"><span class="tv-dot"'+(col?' style="background:var(--'+col+');border-color:var(--'+col+')"':'')+'></span><span class="tv-litx'+(done?' tv-done':'')+'">'+text+'</span>'+(tag?'<span class="tv-tag'+(over?' over':'')+'">'+tag+'</span>':'')+'</div>';
+  const card=(title,body)=>'<div class="tv-card"><div class="tv-ph">'+title+'</div><div class="tv-cardbody">'+body+'</div></div>';
+  const empty=m=>'<div class="tv-empty">'+m+'</div>';
+
+  const big3=tB.items.length?tB.items.slice(0,4).map(it=>'<div class="tv-li"><span class="tv-chk'+(it.done?' on':'')+'">'+(it.done?svg(I.check):'')+'</span><span class="tv-litx'+(it.done?' tv-done':'')+'">'+esc(it.text)+'</span></div>').join(''):empty('No Big 3 set today.');
+  const evs=dayEvents(t).filter(e=>e.src!=='todo').slice(0,6);
+  const sched=evs.length?evs.map(e=>{const m=CAL_SRC[e.src];return li(m.color,esc(e.text),m.label,false,e.done);}).join(''):empty('Nothing scheduled today.');
   const openTodos=S().todos.filter(x=>!x.done);
-  const urgent=openTodos.filter(x=>x.priority==='high'||(x.due&&diffDays(x.due,t)<=0));
-  const soon=openTodos.filter(x=>!(x.priority==='high'||(x.due&&diffDays(x.due,t)<=0))&&x.due&&diffDays(x.due,t)<=3);
-  const todoList=urgent.concat(soon).slice(0,8);
-  const todosHtml=todoList.length?todoList.map(x=>{const rd=x.due?relDue(x.due):null;const tag=rd?'<span class="tv-tag'+(rd.cls==='over'?' over':'')+'">'+rd.txt+'</span>':(x.priority==='high'?'<span class="tv-tag over">High</span>':'');return '<div class="tv-item"><span class="tv-dot"></span><span>'+esc(x.text)+'</span>'+tag+'</div>';}).join(''):'<div class="tv-empty">Nothing urgent — clear runway.</div>';
-  const evs=dayEvents(t).filter(e=>e.src!=='todo').slice(0,7);
-  const schedHtml=evs.length?evs.map(e=>{const m=CAL_SRC[e.src];return '<div class="tv-item"><span class="tv-dot" style="background:var(--'+m.color+');border-color:var(--'+m.color+')"></span><span class="'+(e.done?'tv-done':'')+'">'+esc(e.text)+'</span><span class="tv-tag" style="color:var(--'+m.color+')">'+m.label+'</span></div>';}).join(''):'<div class="tv-empty">Nothing scheduled.</div>';
-  const wk=weekSun(t),mt=macroTotals(t),sl=S().sleepLog.slice().sort((a,b)=>a.date<b.date?1:-1)[0];
-  const stats=[];
-  if(enabled('habits')){stats.push([svg(I.flame,'')+streak,'Day streak']);stats.push([hs.done+'<span class="tv-sub">/'+hs.total+'</span>','Habits done']);}
-  if(enabled('goals'))stats.push([S().goals.filter(g=>goalPct(g)<100).length,'Active goals']);
-  if(enabled('projects')&&S().projects.length)stats.push([S().projects.length,'Projects']);
-  if(enabled('sleep')&&sl)stats.push([fmtDur(sl.dur),'Last night']);
-  if(enabled('macros'))stats.push([Math.round(mt.cal),'Calories']);
-  if(enabled('workouts'))stats.push([S().workoutLog.filter(l=>weekSun(l.date)===wk).length,'Workouts wk']);
-  if(enabled('running'))stats.push([Math.round(S().runs.filter(r=>weekSun(r.date)===wk).reduce((a,r)=>a+r.mi,0)*10)/10,'Miles wk']);
-  if(enabled('skills'))stats.push([(Math.round(S().skills.reduce((a,s)=>a+(s.log||[]).filter(x=>weekSun(x.date)===wk).reduce((b,x)=>b+(+x.min||0),0),0)/6)/10)+'h','Practice wk']);
-  if(enabled('bucket'))stats.push([S().bucket.filter(b=>b.done).length+'<span class="tv-sub">/'+S().bucket.length+'</span>','Bucket list']);
-  const statsHtml=stats.map(s=>'<div class="tv-hstat"><div class="tv-hn">'+s[0]+'</div><div class="tv-hl">'+s[1]+'</div></div>').join('');
+  const prio=openTodos.filter(x=>x.priority==='high').concat(openTodos.filter(x=>x.priority!=='high'&&x.due&&diffDays(x.due,t)<=3)).slice(0,6);
+  const priBody=prio.length?prio.map(x=>{const rd=x.due?relDue(x.due):null;const over=x.priority==='high'||(rd&&rd.cls==='over');const col=(x.priority==='high'||(rd&&rd.cls==='over'))?'clay':(rd&&(rd.cls==='today'||rd.cls==='soon')?'wheat':'sage');return li(col,esc(x.text),x.priority==='high'?'High':(rd?rd.txt:''),over);}).join(''):empty('Nothing urgent.');
+  const up=upcoming().slice(0,6);
+  const deadBody=up.length?up.map(x=>{const rd=relDue(x.when);const over=rd&&rd.cls==='over';const col=over?'clay':(rd&&(rd.cls==='today'||rd.cls==='soon')?'wheat':'sage');return li(col,esc(x.label),rd?rd.txt:'',over);}).join(''):empty('Nothing ahead.');
+
+  const ag=S().goals.filter(g=>goalPct(g)<100).slice(0,4);
+  const goalsBody=ag.length?ag.map(g=>{const p=goalPct(g);return '<div class="tv-prog"><div class="tv-progt"><span>'+esc(g.title)+'</span><span class="tv-pct">'+p+'%</span></div>'+bar(p,'var(--'+goalColorName(g)+')')+'</div>';}).join(''):empty('No active goals.');
+  const mrow=(lab,val,goal,col,unit)=>{const p=pct(val,goal);return '<div class="tv-prog"><div class="tv-progt"><span>'+lab+'</span><span class="tv-mval">'+Math.round(val)+(unit||'')+' / '+goal+(unit||'')+'</span></div>'+bar(p,'var(--'+col+')')+'</div>';};
+  const nutBody=mrow('Calories',mt.cal,mg.cal,'clay','')+mrow('Protein',mt.p,mg.p,'sage','g')+mrow('Carbs',mt.c,mg.c,'wheat','g');
+  let strip='';for(let i=13;i>=0;i--){const d=addDays(t,-i),s=habitStat(d),o=s.total?(s.pct===0?0:0.2+s.pct/100*0.8):0;strip+='<div class="tv-sq'+(d===t?' today':'')+'" style="'+(o?'background:rgba(110,122,90,'+o.toFixed(2)+')':'')+'"></div>';}
+  const consBody='<div class="tv-strip">'+strip+'</div><div class="tv-consft"><span>'+streak+'-day streak</span><span class="tv-pct">'+hs.pct+'%</span></div>';
+  const slog=S().sleepLog.slice().sort((a,b)=>a.date<b.date?1:-1),sl=slog[0];
+  const sl7=slog.filter(x=>diffDays(t,x.date)<7),slAvg=sl7.length?sl7.reduce((a,x)=>a+x.dur,0)/sl7.length:0,slAvgQ=sl7.length?sl7.reduce((a,x)=>a+(x.q||0),0)/sl7.length:0;
+  const tv3=(l,v)=>'<div class="tv-3"><div class="tv-3n">'+v+'</div><div class="tv-3l">'+l+'</div></div>';
+  const sleepBody=slog.length?'<div class="tv-3row">'+tv3('LAST',fmtDur(sl.dur))+tv3('AVG',sl7.length?fmtDur(Math.round(slAvg)):'—')+tv3('QUAL',sl7.length?(Math.round(slAvgQ*10)/10):'—')+'</div><div class="tv-sbar">'+bar(sl7.length?clamp(slAvg/540*100,0,100):0,'var(--plum)')+'</div>':empty('No sleep logged.');
+  const wkWk=S().workoutLog.filter(l=>weekSun(l.date)===wk).length,wkMi=S().runs.filter(r=>weekSun(r.date)===wk).reduce((a,r)=>a+r.mi,0);
+  let fb='',fmax=0;const fd=[];for(let i=6;i>=0;i--){const d=addDays(t,-i),mi=S().runs.filter(r=>r.date===d).reduce((a,r)=>a+r.mi,0);fd.push(mi);fmax=Math.max(fmax,mi);}
+  fb=fd.map(mi=>'<div class="tv-fbar" style="height:'+(fmax?Math.max(5,mi/fmax*100):5)+'%"></div>').join('');
+  const fitBody='<div class="tv-3row">'+(enabled('workouts')?tv3('WORKOUTS',wkWk):'')+(enabled('running')?tv3('MILES',Math.round(wkMi*10)/10):'')+'</div>'+(enabled('running')?'<div class="tv-fchart">'+fb+'</div>':'');
+
+  const hstat=(v,l)=>'<div class="tv-hstat"><div class="tv-hn">'+v+'</div><div class="tv-hl">'+l+'</div></div>';
+  const hstats=[];
+  if(enabled('habits')){hstats.push(hstat(streak,'Streak'));hstats.push(hstat(hs.done+'/'+hs.total,'Habits'));}
+  if(enabled('macros'))hstats.push(hstat(Math.round(mt.cal),'Cal'));
+  if(enabled('running'))hstats.push(hstat(Math.round(wkMi*10)/10,'Miles'));
+  if(enabled('workouts')&&!enabled('running'))hstats.push(hstat(wkWk,'Workouts'));
   const topo='<svg class="tv-topo" viewBox="0 0 400 200" preserveAspectRatio="none">'+[0,1,2,3,4,5].map(i=>'<path d="M-20 '+(30+i*30)+' C 80 '+(10+i*30)+', 160 '+(60+i*30)+', 240 '+(30+i*30)+' S 380 '+(50+i*30)+', 440 '+(25+i*30)+'" fill="none" stroke="#fff" stroke-width="1.4"/>').join('')+'</svg>';
-  const R=52,C=2*Math.PI*R;
-  const ring=enabled('habits')?'<div class="tv-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="'+R+'" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="10"/><circle cx="60" cy="60" r="'+R+'" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+(C-C*hs.pct/100)+'" transform="rotate(-90 60 60)"/></svg><div class="tv-ringc"><b>'+hs.pct+'%</b><span>today</span></div></div>':'';
+  const R=46,C=2*Math.PI*R;
+  const ring=enabled('habits')?'<div class="tv-ring"><svg viewBox="0 0 108 108"><circle cx="54" cy="54" r="'+R+'" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="9"/><circle cx="54" cy="54" r="'+R+'" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+(C-C*hs.pct/100)+'" transform="rotate(-90 54 54)"/></svg><div class="tv-ringc"><b>'+hs.pct+'%</b></div></div>':'';
+
+  const row1=[card('Today’s Big 3',big3),card('Schedule',sched)];
+  if(enabled('todo'))row1.push(card('Priorities',priBody));
+  row1.push(card('Deadlines',deadBody));
+  const row2=[];
+  if(enabled('goals'))row2.push(card('Active goals',goalsBody));
+  if(enabled('macros'))row2.push(card('Nutrition today',nutBody));
+  if(enabled('habits'))row2.push(card('Consistency · 14d',consBody));
+  if(enabled('sleep'))row2.push(card('Sleep',sleepBody));
+  if(enabled('workouts')||enabled('running'))row2.push(card('Fitness this week',fitBody));
+
   return '<button class="tv-exit" data-act="tv-exit" aria-label="Exit TV mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>'+
     '<div class="tv-hero">'+topo+
-      '<div class="tv-hero-top"><div><div class="tv-clock" id="tv-clock">'+clock+'</div><div class="tv-hero-sub">'+dateStr+' · '+greet+'</div></div>'+ring+'</div>'+
-      (statsHtml?'<div class="tv-hstats">'+statsHtml+'</div>':'')+
+      '<div class="tv-hero-top">'+
+        '<div class="tv-hl-wrap"><div class="tv-clock" id="tv-clock">'+clock+'</div><div class="tv-hero-sub"><div>'+dateStr+'</div><div>'+greet+'</div></div></div>'+
+        '<div class="tv-hr-wrap">'+hstats.join('')+ring+'</div>'+
+      '</div>'+
     '</div>'+
-    '<div class="tv-grid">'+
-      '<div class="tv-card"><div class="tv-ph">Today’s Big 3</div><div class="tv-cardbody">'+big3+next+'</div></div>'+
-      '<div class="tv-card"><div class="tv-ph">To-Do</div><div class="tv-cardbody">'+todosHtml+'</div></div>'+
-      '<div class="tv-card"><div class="tv-ph">Schedule</div><div class="tv-cardbody">'+schedHtml+'</div></div>'+
-    '</div>';
+    (row1.length?'<div class="tv-row" style="grid-template-columns:repeat('+row1.length+',1fr)">'+row1.join('')+'</div>':'')+
+    (row2.length?'<div class="tv-row" style="grid-template-columns:repeat('+row2.length+',1fr)">'+row2.join('')+'</div>':'');
 }
 function tvTick(){
   if(!ui.tv)return;
