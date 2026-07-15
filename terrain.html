@@ -3501,7 +3501,14 @@ const Sync={
     if(this._form)this._form.style.display=loading?'none':'block';
     if(!loading){this._busy(false);this.err('');if(this._pw)this._pw.value='';}
   },
-  hideLogin(){if(this._overlay)this._overlay.classList.remove('show');},
+  hideLogin(){
+    if(this._overlay)this._overlay.classList.remove('show');
+    // Clear the login fields once we're past the sign-in screen. Leaving a
+    // password value on the page makes the browser pair it with the next text
+    // field you type into (e.g. a new habit) and pop a bogus "Save password?".
+    if(this._email)this._email.value='';
+    if(this._pw)this._pw.value='';
+  },
   err(m){if(this._errEl){this._errEl.textContent=m||'';this._errEl.style.display=m?'block':'none';}},
   _busy(b){if(this._form)this._form.querySelectorAll('button,input').forEach(function(x){x.disabled=b;});},
   setStatus(s){
