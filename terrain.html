@@ -737,7 +737,7 @@ function enabled(id){
 
 /* ---------- transient ui state ---------- */
 const ui={view:'overview',moreOpen:false,qaOpen:false,qaMode:'main',tv:false,tvClock:null,habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
-  calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',focus:null,fTimer:null,skTimer:null,skTick:null,
+  calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',macroFoodPage:0,focus:null,fTimer:null,skTimer:null,skTick:null,
   todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all'};
 
 /* ---------- computed ---------- */
@@ -1795,18 +1795,31 @@ function vMacros(){
   const q=(ui.macroSearch||'').toLowerCase();
   const sf=S().savedFoods.filter(x=>!q||x.name.toLowerCase().includes(q));
   const sm=S().savedMeals.filter(x=>!q||x.name.toLowerCase().includes(q));
-  const recents=[];const seen=new Set();
-  const dates=Object.keys(S().macroLog).sort().reverse().slice(0,14);
-  for(const dd of dates){for(const f of (S().macroLog[dd]||[])){const k=f.name.toLowerCase();if(!seen.has(k)){seen.add(k);recents.push(f);if(recents.length>=8)break;}}if(recents.length>=8)break;}
-  const sfRows=sf.map(x=>'<div class="row" style="padding:7px 2px"><div class="txt"><div class="t" style="font-size:13px">'+esc(x.name)+'</div><div class="sub">'+Math.round(x.cal)+' kcal \u00b7 P'+Math.round(x.p)+' C'+Math.round(x.c)+' F'+Math.round(x.f)+'</div></div><button class="btn sm" data-act="sfood-log" data-id="'+x.id+'">Log</button><button class="icon-btn del" data-act="sfood-del" data-id="'+x.id+'">'+svg(I.trash)+'</button></div>').join('');
+  // "Most reused" chips: rank every food ever logged by how many times it's
+  // been used (ties broken by most recent), then show the top few.
+  const REC_LIMIT=8;
+  const useMap={};
+  for(const dd of Object.keys(S().macroLog).sort()){for(const f of (S().macroLog[dd]||[])){const k=f.name.toLowerCase();if(!useMap[k])useMap[k]={food:f,n:0,last:dd};const u=useMap[k];u.n++;u.last=dd;u.food=f;}}
+  const recents=Object.values(useMap).sort((a,b)=>b.n-a.n||(a.last<b.last?1:-1)).slice(0,REC_LIMIT).map(x=>x.food);
+  // Foods list: paginate 5 per page (search still spans every page via `sf`).
+  const FOODS_PER_PAGE=5;
+  const foodPages=Math.max(1,Math.ceil(sf.length/FOODS_PER_PAGE));
+  ui.macroFoodPage=Math.min(Math.max(0,ui.macroFoodPage||0),foodPages-1);
+  const fpStart=ui.macroFoodPage*FOODS_PER_PAGE;
+  const sfPage=sf.slice(fpStart,fpStart+FOODS_PER_PAGE);
+  const sfRows=sfPage.map(x=>'<div class="row" style="padding:7px 2px"><div class="txt"><div class="t" style="font-size:13px">'+esc(x.name)+'</div><div class="sub">'+Math.round(x.cal)+' kcal \u00b7 P'+Math.round(x.p)+' C'+Math.round(x.c)+' F'+Math.round(x.f)+'</div></div><button class="btn sm" data-act="sfood-log" data-id="'+x.id+'">Log</button><button class="icon-btn del" data-act="sfood-del" data-id="'+x.id+'">'+svg(I.trash)+'</button></div>').join('');
+  const sfPager=foodPages>1?'<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:8px">'+
+    '<button class="icon-btn" data-act="sfood-page" data-id="-1"'+(ui.macroFoodPage===0?' disabled style="opacity:.3"':'')+'>'+svg(I.chevL)+'</button>'+
+    '<span class="mono faint" style="font-size:12px">Page '+(ui.macroFoodPage+1)+' of '+foodPages+'</span>'+
+    '<button class="icon-btn" data-act="sfood-page" data-id="1"'+(ui.macroFoodPage===foodPages-1?' disabled style="opacity:.3"':'')+'>'+svg(I.chevR)+'</button></div>':'';
   const smRows=sm.map(x=>'<div class="row" style="padding:7px 2px"><div style="width:8px;height:8px;border-radius:50%;background:var(--clay);flex:none"></div><div class="txt"><div class="t" style="font-size:13px">'+esc(x.name)+'</div><div class="sub">'+(x.cat||'Meal')+' \u00b7 '+Math.round(x.cal)+' kcal \u00b7 '+(x.items||[]).length+' items</div></div><button class="btn sm" data-act="smeal-log" data-id="'+x.id+'">Log</button><button class="icon-btn del" data-act="smeal-del" data-id="'+x.id+'">'+svg(I.trash)+'</button></div>').join('');
   const recChips=recents.length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+recents.map(f=>'<button class="chip" data-act="recent-log" data-name="'+esc(f.name)+'" data-cal="'+(+f.cal||0)+'" data-p="'+(+f.p||0)+'" data-c="'+(+f.c||0)+'" data-f="'+(+f.f||0)+'">'+esc(f.name)+'</button>').join('')+'</div>':'';
   const saved='<div class="card" style="margin-top:16px"><div class="card-h"><h3>Saved foods &amp; meals</h3><div class="spacer" style="display:flex;gap:8px"><button class="btn sm" data-act="smeal-new">'+svg(I.plus)+'Meal from today</button><button class="btn sm" data-act="macro-copy">Copy yesterday</button></div></div>'+
     '<input class="inp" placeholder="Search saved\u2026" data-change="macro-search" value="'+esc(ui.macroSearch||'')+'" style="margin-bottom:10px">'+
     recChips+
     (smRows?'<div class="eyebrow" style="margin:2px 0 4px">Meals</div>'+smRows:'')+
-    (sfRows?'<div class="eyebrow" style="margin:10px 0 4px">Foods</div>'+sfRows:'')+
-    (!sfRows&&!smRows?'<p class="faint" style="font-size:12.5px;margin:2px 0">Save a food from the log below, or bundle today\u2019s entries into a meal.</p>':'')+'</div>';
+    (sfRows?'<div class="eyebrow" style="margin:10px 0 4px">Foods</div>'+sfRows+sfPager:'')+
+    (!sf.length&&!sm.length?'<p class="faint" style="font-size:12.5px;margin:2px 0">Save a food from the log below, or bundle today\u2019s entries into a meal.</p>':'')+'</div>';
   return head+summary+foodAdd+saved+'<div class="card" style="margin-top:16px"><div class="card-h"><h3>Food log</h3><span class="spacer faint mono" style="font-size:12px">'+log.length+' item'+(log.length===1?'':'s')+'</span></div>'+rows+
     (log.length?'<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap">'+log.map(f=>'<button class="chip" data-act="sfood-save" data-id="'+f.id+'" title="Save as reusable food">'+svg(I.plus)+' Save \u201c'+esc(f.name)+'\u201d</button>').join('')+'</div>':'')+'</div>';
 }
@@ -3188,6 +3201,7 @@ const actions={
   'food-add'(){const name=getInput('f-name');if(!name)return;const d=ui.macroDate;if(!S().macroLog[d])S().macroLog[d]=[];S().macroLog[d].push({id:uid(),name,cal:num('f-cal'),p:num('f-p'),c:num('f-c'),f:num('f-f')});commit();},
   'food-del'(el){const d=ui.macroDate;const log=S().macroLog[d]||[];const i=log.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=log.splice(i,1);commit();toast('Removed '+rm.name,()=>{(S().macroLog[d]=S().macroLog[d]||[]).splice(i,0,rm);commit();});},
   'mdate'(el){ui.macroDate=addDays(ui.macroDate,+el.dataset.id);if(ui.macroDate>todayStr())ui.macroDate=todayStr();render();},
+  'sfood-page'(el){ui.macroFoodPage=Math.max(0,(ui.macroFoodPage||0)+ +el.dataset.id);render();},
 
   /* bucket */
   'bucket-toggle'(el){const b=S().bucket.find(x=>x.id===el.dataset.id);if(b){b.done=!b.done;commit();}},
@@ -3260,7 +3274,7 @@ document.addEventListener('change',e=>{
   if(act==='big3-next'){big3Of(todayStr()).next=t.value.trim();Store.save();return;}
   if(act==='rev-field'&&t.dataset.key&&t.dataset.week){const r=S().reviews;if(!r[t.dataset.week])r[t.dataset.week]={};r[t.dataset.week][t.dataset.key]=t.value;Store.save();return;}
   if(act==='nextf'&&t.dataset.k){ui.nextF[t.dataset.k]=t.value;render();return;}
-  if(act==='macro-search'){ui.macroSearch=t.value;render();return;}
+  if(act==='macro-search'){ui.macroSearch=t.value;ui.macroFoodPage=0;render();return;}
   if(act==='gweight'&&t.dataset.k){S().settings.goalWeights[t.dataset.k]=Math.max(0,+t.value||0);commit();return;}
   if(act==='sweight'&&t.dataset.k){S().settings.scoreWeights[t.dataset.k]=Math.max(0,+t.value||0);commit();return;}
   if(act==='focus-field'&&t.dataset.key){const ref=focusTask();if(ref&&ref.t){ref.t[t.dataset.key]=t.value;Store.save();}return;}
