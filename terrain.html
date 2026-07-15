@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Terrain — Life OS</title>
 <!-- PWA: installable + offline -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -118,6 +118,7 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:5px 13px;font-size:12.5px;font-weight:600;color:var(--ink-soft);transition:.14s}
 .chip:hover{border-color:var(--stone)}
 .chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip svg{width:13px;height:13px;vertical-align:-2px;flex:none}
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;letter-spacing:.01em;white-space:nowrap}
 .tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;color:var(--ink-soft);background:var(--surface-2)}
 .tag svg{width:11px;height:11px;flex:none;opacity:.85}
@@ -422,6 +423,8 @@ body.tv-on{overflow:hidden}
   .tv-open-btn{display:none}
   .app{grid-template-columns:1fr}
   .sidebar{display:none}
+  /* 16px prevents iOS from zoom-focusing inputs */
+  .inp,input,select,textarea{font-size:16px!important}
   .topbar{padding:10px 16px;gap:10px}
   .topbar h1{font-size:18px}
   .topbar .date{font-size:11px}
@@ -983,6 +986,7 @@ function shell(){
     '</div>';
   $('#view').innerHTML=VIEWS[ui.view]();
   dedupeHeader();
+  stripAutofill();
 }
 // Hide the in-page section title when it just repeats the sticky top-bar title.
 // Titles that carry unique info (e.g. a specific life-area name) don't match and stay visible.
@@ -1003,6 +1007,8 @@ function refreshNav(){
 let flashT;
 function flashSaved(){const e=$('#saved');if(!e)return;e.classList.add('show');clearTimeout(flashT);flashT=setTimeout(()=>e.classList.remove('show'),1200);}
 
+// Mark ordinary data inputs so the browser's password manager doesn't offer to "save password".
+function stripAutofill(root){(root||document).querySelectorAll('input:not([autocomplete]):not(#sync-email):not(#sync-pw),textarea:not([autocomplete])').forEach(function(el){el.setAttribute('autocomplete','off');});}
 function render(){
   if(!VIEWS[ui.view])ui.view='overview'; // safety: unknown/removed view falls back to Overview
   if(ui.tv){const tvr=document.getElementById('tv-root');if(tvr)tvr.innerHTML=tvHtml();return;}
@@ -1016,6 +1022,7 @@ function render(){
   refreshNav();
   view.innerHTML=VIEWS[ui.view]();
   dedupeHeader();
+  stripAutofill();
 }
 
 /* ---------- shared bits ---------- */
@@ -1735,7 +1742,7 @@ function vMacros(){
       '<div class="mb-row" style="border-top:1px solid var(--line);padding-top:12px"><span class="lab">Remaining</span><span></span><span class="val" style="font-weight:600;color:'+(mg.cal-mt.cal<0?'var(--clay)':'var(--sage)')+'">'+(mg.cal-mt.cal)+' kcal</span></div>'+
     '</div></div></div>';
   const foodAdd='<div class="card" style="margin-top:16px"><div class="card-h"><h3>Add food</h3></div>'+
-    '<div class="food-add"><input class="inp" id="f-name" placeholder="Food or meal" data-enter="food-add"><input class="inp" id="f-cal" type="number" placeholder="kcal" inputmode="numeric"><input class="inp" id="f-p" type="number" placeholder="P (g)" inputmode="numeric"><input class="inp" id="f-c" type="number" placeholder="C (g)" inputmode="numeric"><input class="inp" id="f-f" type="number" placeholder="F (g)" inputmode="numeric"><button class="btn primary" data-act="food-add">'+svg(I.plus)+'</button></div></div>';
+    '<div class="food-add"><input class="inp" id="f-name" placeholder="Food or meal" data-enter="food-add"><input class="inp" id="f-cal" type="number" placeholder="kcal" inputmode="decimal"><input class="inp" id="f-p" type="number" placeholder="P (g)" inputmode="decimal"><input class="inp" id="f-c" type="number" placeholder="C (g)" inputmode="decimal"><input class="inp" id="f-f" type="number" placeholder="F (g)" inputmode="decimal"><button class="btn primary" data-act="food-add">'+svg(I.plus)+'</button></div></div>';
   const rows=log.length?
     '<div class="food-row" style="font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--line)"><span>Item</span><span class="mono">kcal</span><span class="mono fc">P</span><span class="mono fc">C</span><span class="mono ff">F</span><span></span></div>'+
     log.map(f=>'<div class="food-row"><span>'+esc(f.name)+'</span><span class="mono">'+Math.round(f.cal||0)+'</span><span class="mono fc">'+Math.round(f.p||0)+'</span><span class="mono fc">'+Math.round(f.c||0)+'</span><span class="mono ff">'+Math.round(f.f||0)+'</span><button class="icon-btn del" data-act="food-del" data-id="'+f.id+'">'+svg(I.trash)+'</button></div>').join('')
@@ -2508,6 +2515,7 @@ function openModal(opts){
     else body+=fields[i];
   }
   $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal"><div class="modal-h"><h3>'+esc(opts.title)+'</h3></div><div class="modal-b">'+body+'</div><div class="modal-f"><button class="btn ghost" data-act="modal-cancel">Cancel</button><button class="btn primary" data-act="modal-ok">'+esc(opts.ok||'Save')+'</button></div></div></div>';
+  stripAutofill($('#modal-root'));
   const first=$('#modal-root .inp');if(first)setTimeout(()=>first.focus(),40);
 }
 function closeModal(){$('#modal-root').innerHTML='';modalSave=null;}
@@ -3092,10 +3100,10 @@ const actions={
 
   /* macros */
   'macro-goals'(){const g=S().macroGoals;openModal({title:'Daily targets',fields:[
-    {key:'cal',label:'Calories (kcal)',type:'number',value:g.cal,half:true},
-    {key:'p',label:'Protein (g)',type:'number',value:g.p,half:true},
-    {key:'c',label:'Carbs (g)',type:'number',value:g.c,half:true},
-    {key:'f',label:'Fat (g)',type:'number',value:g.f,half:true}
+    {key:'cal',label:'Calories (kcal)',type:'number',dec:true,value:g.cal,half:true},
+    {key:'p',label:'Protein (g)',type:'number',dec:true,value:g.p,half:true},
+    {key:'c',label:'Carbs (g)',type:'number',dec:true,value:g.c,half:true},
+    {key:'f',label:'Fat (g)',type:'number',dec:true,value:g.f,half:true}
   ],onSave(v){S().macroGoals={cal:+v.cal||0,p:+v.p||0,c:+v.c||0,f:+v.f||0};commit();}});},
   'food-add'(){const name=getInput('f-name');if(!name)return;const d=ui.macroDate;if(!S().macroLog[d])S().macroLog[d]=[];S().macroLog[d].push({id:uid(),name,cal:num('f-cal'),p:num('f-p'),c:num('f-c'),f:num('f-f')});commit();},
   'food-del'(el){const d=ui.macroDate;const log=S().macroLog[d]||[];const i=log.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=log.splice(i,1);commit();toast('Removed '+rm.name,()=>{(S().macroLog[d]=S().macroLog[d]||[]).splice(i,0,rm);commit();});},
