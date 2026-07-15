@@ -298,10 +298,26 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .linkchip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--ink-soft);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:2px 8px;text-decoration:none;max-width:190px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transition:.14s}
 .linkchip:hover{border-color:var(--stone);color:var(--ink)}
 .linkchip img{width:13px;height:13px;border-radius:3px;flex:none}
-.note-entry{padding:10px 2px;border-bottom:1px solid var(--line)}
+.note-entry{padding:12px 2px;border-bottom:1px solid var(--line)}
 .note-entry:last-of-type{border-bottom:none}
-.note-entry .nh{display:flex;align-items:center;gap:8px;margin-bottom:3px}
-.note-entry .nt{white-space:pre-wrap;line-height:1.55;font-size:13.5px}
+.note-entry .nh{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.note-entry .note-title{font-family:var(--serif);font-weight:600;font-size:15px;color:var(--ink)}
+.note-entry .nt{line-height:1.6;font-size:14px}
+/* Rich-text editor (notes & reflections) */
+.rte{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);overflow:hidden}
+.rte:focus-within{border-color:var(--sage);box-shadow:0 0 0 3px var(--sage-bg)}
+.rte-tb{display:flex;gap:2px;padding:5px 6px;border-bottom:1px solid var(--line);background:var(--paper)}
+.rte-tb button{width:31px;height:28px;border:none;background:none;border-radius:6px;cursor:pointer;font-size:14px;line-height:1;color:var(--ink-soft);display:grid;place-items:center;padding:0}
+.rte-tb button:hover{background:var(--line);color:var(--ink)}
+.rte-tb button.on{background:var(--sage-bg);color:var(--sage)}
+.rte-tb button u{text-decoration:underline}
+.rte-body{min-height:150px;max-height:44vh;overflow-y:auto;padding:12px 13px;font-size:15px;line-height:1.65;outline:none;color:var(--ink);word-break:break-word}
+.rte-body:empty:before{content:attr(data-ph);color:var(--ink-faint)}
+.rte-body b,.rte-body strong{font-weight:700}
+.rte-content{line-height:1.65;font-size:14px}
+.rte-content b,.rte-content strong{font-weight:700}
+.rte-content u{text-decoration:underline}
+.rte-content:empty{display:none}
 
 /* drag reorder */
 .grip{width:22px;height:26px;display:grid;place-items:center;flex:none;color:var(--ink-faint);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:6px}
@@ -1130,7 +1146,7 @@ function vOverview(){
     macroRow('Fat',mt.f,mg.f,'var(--stone)','g')+
     '</div>';
 
-  const readHtml=reading.length?reading.map(r=>'<div class="row" style="padding:8px 2px"><div class="txt"><div class="t" style="font-size:13.5px">'+esc(r.title)+'</div><div class="sub">'+esc(r.author||'')+' · '+(r.type==='podcast'?'Podcast':'Book')+'</div></div></div>').join(''):'<p class="faint" style="font-size:13px;margin:6px 2px">Nothing in progress — pick something from your list.</p>';
+  const readHtml=reading.length?reading.map(r=>'<div class="row" style="padding:8px 2px"><div class="txt"><div class="t" style="font-size:13.5px">'+esc(r.title)+'</div><div class="sub">'+esc(r.author||'')+' · '+rTypeLabel(r.type)+'</div></div></div>').join(''):'<p class="faint" style="font-size:13px;margin:6px 2px">Nothing in progress — pick something from your list.</p>';
 
   const readEmbed=(enabled('reading')&&reading.length)?'<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div class="card-h" style="margin-bottom:8px"><span class="eyebrow">Currently reading</span></div>'+readHtml+'</div>':'';
   // --- Today command center ---
@@ -1844,6 +1860,8 @@ function vBucket(){
 
 /* ---------- VIEW: READING ---------- */
 const RSTATUS={want:['Want to','stone'],reading:['In progress','clay'],done:['Finished','sage']};
+const RTYPE={book:'Book',podcast:'Podcast',other:'Other'};
+function rTypeLabel(t){return RTYPE[t]||'Book';}
 function stars(n){let s='';for(let i=1;i<=5;i++)s+='<svg viewBox="0 0 24 24" fill="'+(i<=n?'var(--wheat)':'none')+'" stroke="var(--wheat)" stroke-width="1.6">'+I.star+'</svg>';return '<span class="stars">'+s+'</span>';}
 function vReading(){
   const rs=S().reading, f=ui.readFilter;
@@ -1851,13 +1869,13 @@ function vReading(){
   const order={reading:0,want:1,done:2};
   list=list.slice().sort((a,b)=>(order[a.status]-order[b.status]));
   const head='<div class="sect-head"><div class="lead"><h2>Reading & Podcasts</h2><p>A running shelf of what you want to get to, what you\u2019re in the middle of, and what you\u2019ve finished.</p></div>'+
-    '<div class="actions"><div class="chips">'+[['all','All'],['book','Books'],['podcast','Podcasts']].map(x=>'<button class="chip'+(f===x[0]?' on':'')+'" data-act="read-filter" data-id="'+x[0]+'">'+x[1]+'</button>').join('')+'</div><button class="btn primary" data-act="read-add">'+svg(I.plus)+'Add</button></div></div>';
+    '<div class="actions"><div class="chips">'+[['all','All'],['book','Books'],['podcast','Podcasts'],['other','Other']].map(x=>'<button class="chip'+(f===x[0]?' on':'')+'" data-act="read-filter" data-id="'+x[0]+'">'+x[1]+'</button>').join('')+'</div><button class="btn primary" data-act="read-add">'+svg(I.plus)+'Add</button></div></div>';
   if(!list.length)return head+'<div class="card">'+emptyBox('Nothing added yet. Add a book or podcast to start your shelf.','reading')+'</div>';
   const rows=list.map(r=>{
     const st=RSTATUS[r.status]||RSTATUS.want;
     const nn=(r.noteLog||[]).length;
     return '<div class="row"><div style="width:8px;align-self:stretch;border-radius:20px;background:var(--'+st[1]+');flex:none;margin:2px 0"></div>'+
-      '<div class="txt" style="padding-left:4px;cursor:pointer" data-act="read-view" data-id="'+r.id+'" title="Open notes & details"><div class="t">'+esc(r.title)+'</div><div class="sub" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'+esc(r.author||'')+(r.author?' · ':'')+(r.type==='podcast'?'Podcast':'Book')+(nn?' · '+nn+' note'+(nn>1?'s':''):'')+(r.link?linkChip(r.link):'')+'</div></div>'+
+      '<div class="txt" style="padding-left:4px;cursor:pointer" data-act="read-view" data-id="'+r.id+'" title="Open notes & details"><div class="t">'+esc(r.title)+'</div><div class="sub" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'+esc(r.author||'')+(r.author?' · ':'')+rTypeLabel(r.type)+(nn?' · '+nn+' note'+(nn>1?'s':''):'')+(r.link?linkChip(r.link):'')+'</div></div>'+
       (r.status==='done'&&r.rating?stars(r.rating):'')+
       pill(st[0],'var(--'+st[1]+')','var(--'+st[1]+'-bg)')+
       '<button class="icon-btn" data-act="read-edit" data-id="'+r.id+'">'+svg(I.edit)+'</button>'+
@@ -1869,13 +1887,14 @@ function openReadView(id){
   const r=S().reading.find(x=>x.id===id);if(!r)return;
   const st=RSTATUS[r.status]||RSTATUS.want;
   const notes=(r.noteLog||[]).slice().sort((a,b)=>a.date<b.date?1:-1);
-  const notesHtml=notes.length?notes.map(n=>'<div class="note-entry"><div class="nh"><span class="mono faint" style="font-size:11px">'+fmtDL(n.date)+'</span><span class="spacer" style="margin-left:auto"></span><button class="icon-btn del" style="opacity:.6" data-act="rnote-del" data-r="'+r.id+'" data-id="'+n.id+'">'+svg(I.trash)+'</button></div><div class="nt">'+esc(n.text)+'</div></div>').join(''):'<p class="faint" style="font-size:13px;margin:2px 0 6px">No reflections yet — capture a thought below.</p>';
+  const noteBody=n=>n.html!=null?n.html:plainToHtml(n.text);
+  const notesHtml=notes.length?notes.map(n=>'<div class="note-entry"><div class="nh">'+(n.title?'<span class="note-title">'+esc(n.title)+'</span>':'')+'<span class="mono faint" style="font-size:11px;margin-left:auto">'+fmtDL(n.date)+'</span><button class="icon-btn del" style="opacity:.6" data-act="rnote-del" data-r="'+r.id+'" data-id="'+n.id+'">'+svg(I.trash)+'</button></div><div class="nt rte-content">'+noteBody(n)+'</div></div>').join(''):'<p class="faint" style="font-size:13px;margin:2px 0 6px">No reflections yet — capture a thought below.</p>';
   $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal">'+
-    '<div class="modal-h"><h3>'+esc(r.title)+'</h3><div class="faint" style="font-size:12.5px;margin-top:2px">'+esc(r.author||'')+(r.author?' · ':'')+(r.type==='podcast'?'Podcast':'Book')+'</div></div>'+
+    '<div class="modal-h"><h3>'+esc(r.title)+'</h3><div class="faint" style="font-size:12.5px;margin-top:2px">'+esc(r.author||'')+(r.author?' · ':'')+rTypeLabel(r.type)+'</div></div>'+
     '<div class="modal-b">'+
       '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:16px">'+pill(st[0],'var(--'+st[1]+')','var(--'+st[1]+'-bg)')+(r.status==='done'&&r.rating?stars(r.rating):'')+(r.link?linkChip(r.link):'')+'</div>'+
       '<div class="day-sec"><h4>Notes &amp; reflections</h4>'+notesHtml+
-      '<div style="margin-top:10px"><textarea class="inp" id="rnote-text" placeholder="What stood out? Ideas, quotes, takeaways…"></textarea><div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn sm primary" data-act="rnote-add" data-id="'+r.id+'">'+svg(I.plus)+'Add note</button></div></div></div>'+
+      '<div style="margin-top:14px"><input class="inp" id="rnote-title" placeholder="Note heading (optional)" style="margin-bottom:8px">'+richEditor('rnote-text','','What stood out? Ideas, quotes, takeaways…')+'<div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn sm primary" data-act="rnote-add" data-id="'+r.id+'">'+svg(I.plus)+'Add note</button></div></div></div>'+
     '</div>'+
     '<div class="modal-f"><button class="btn ghost" data-act="read-edit" data-id="'+r.id+'">'+svg(I.edit)+'Edit item</button><button class="btn primary" data-act="modal-cancel">Close</button></div>'+
     '</div></div>';
@@ -1892,7 +1911,7 @@ function vJournal(){
     '<div class="actions"><div class="chips">'+[['all','All'],['daily','Daily'],['weekly','Weekly'],['monthly','Monthly']].map(x=>'<button class="chip'+(f===x[0]?' on':'')+'" data-act="jrnl-filter" data-id="'+x[0]+'">'+x[1]+'</button>').join('')+'</div><button class="btn primary" data-act="jrnl-add">'+svg(I.plus)+'New entry</button></div></div>';
   const quick='<div class="grid g3" style="margin-bottom:16px">'+['daily','weekly','monthly'].map(t=>{const j=JT[t];return '<button class="card" data-act="jrnl-add" data-id="'+t+'" style="text-align:left;cursor:pointer;border:1px solid var(--line)"><div class="card-h" style="margin-bottom:8px"><div style="width:32px;height:32px;border-radius:9px;background:var(--'+j[2]+'-bg);color:var(--'+j[2]+');display:grid;place-items:center">'+svg(I[j[1]])+'</div><h3 style="font-size:15px">'+j[0]+' review</h3></div><p class="muted" style="font-size:12.5px;margin:0">'+(t==='daily'?'A quick end-of-day check-in.':t==='weekly'?'Wins, lessons, and next week\u2019s focus.':'Zoom out on the month\u2019s progress.')+'</p></button>';}).join('')+'</div>';
   if(!list.length)return head+quick+'<div class="card">'+emptyBox('No entries yet. Start with a daily check-in above.','journal')+'</div>';
-  const rows=list.map(j=>{const t=JT[j.type]||JT.daily;return '<div class="card" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+pill(t[0],'var(--'+t[2]+')','var(--'+t[2]+'-bg)')+'<span class="mono faint" style="font-size:12.5px">'+fmtDL(j.date)+'</span>'+(j.mood?'<span style="font-size:16px">'+j.mood+'</span>':'')+'<span class="spacer"></span><button class="icon-btn" data-act="jrnl-edit" data-id="'+j.id+'">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="jrnl-del" data-id="'+j.id+'">'+svg(I.trash)+'</button></div><div style="white-space:pre-wrap;line-height:1.6;font-size:14px">'+esc(j.text)+'</div></div>';}).join('');
+  const rows=list.map(j=>{const t=JT[j.type]||JT.daily;return '<div class="card" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+pill(t[0],'var(--'+t[2]+')','var(--'+t[2]+'-bg)')+'<span class="mono faint" style="font-size:12.5px">'+fmtDL(j.date)+'</span>'+(j.mood?'<span style="font-size:16px">'+j.mood+'</span>':'')+'<span class="spacer"></span><button class="icon-btn" data-act="jrnl-edit" data-id="'+j.id+'">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="jrnl-del" data-id="'+j.id+'">'+svg(I.trash)+'</button></div><div class="rte-content" style="line-height:1.6;font-size:14px">'+(j.html!=null?j.html:plainToHtml(j.text))+'</div></div>';}).join('');
   return head+quick+rows;
 }
 
@@ -2572,13 +2591,60 @@ function vSettings(){
 
 const VIEWS={overview:vOverview,calendar:vCalendar,todo:vTodo,goals:vGoals,projects:vProjects,habits:vHabits,macros:vMacros,bucket:vBucket,reading:vReading,journal:vJournal,workouts:vWorkouts,running:vRunning,sleep:vSleep,inbox:vInbox,review:vReview,areas:vAreas,next:vNext,vision:vVision,skills:vSkills,achievements:vAchievements,networth:vNetWorth,savings:vSavings,bills:vBills,settings:vSettings};
 
+/* ---------- RICH TEXT ---------- */
+// A small formatting-capable editor (bold / italic / underline) used for long
+// notes and reflections. Stores lightweight HTML; sanitized to a safe whitelist.
+function richEditor(key,html,ph){
+  return '<div class="rte">'+
+    '<div class="rte-tb">'+
+      '<button type="button" data-cmd="bold" title="Bold"><b>B</b></button>'+
+      '<button type="button" data-cmd="italic" title="Italic"><i>I</i></button>'+
+      '<button type="button" data-cmd="underline" title="Underline"><u>U</u></button>'+
+    '</div>'+
+    '<div class="rte-body" contenteditable="true" data-rte="1" data-k="'+key+'" id="'+key+'"'+(ph?' data-ph="'+esc(ph)+'"':'')+'>'+(html||'')+'</div>'+
+  '</div>';
+}
+// Keep only basic formatting tags, drop all attributes — safe to render via innerHTML.
+function sanitizeRich(html){
+  const keep={B:1,STRONG:1,I:1,EM:1,U:1,BR:1,DIV:1,P:1};
+  // Inert document: images never load, scripts never run, handlers never fire.
+  const doc=new DOMParser().parseFromString('<div id="_r">'+(html||'')+'</div>','text/html');
+  const tmp=doc.getElementById('_r');
+  (function walk(node){
+    [...node.childNodes].forEach(ch=>{
+      if(ch.nodeType===1){
+        walk(ch);
+        if(keep[ch.tagName]){while(ch.attributes.length)ch.removeAttribute(ch.attributes[0].name);}
+        else{while(ch.firstChild)node.insertBefore(ch.firstChild,ch);node.removeChild(ch);}
+      }else if(ch.nodeType!==3){node.removeChild(ch);}
+    });
+  })(tmp);
+  return tmp.innerHTML;
+}
+function rteEmpty(html){const d=new DOMParser().parseFromString('<div id="_r">'+(html||'')+'</div>','text/html').getElementById('_r');return !(d.textContent||'').replace(/ /g,' ').trim();}
+function rteGet(key){const el=document.getElementById(key);return el?sanitizeRich(el.innerHTML):'';}
+function plainToHtml(t){return esc(t||'').replace(/\n/g,'<br>');}
+// Format toolbar: run on mousedown so the editor keeps its selection/focus.
+document.addEventListener('mousedown',e=>{const b=e.target.closest('.rte-tb [data-cmd]');if(b){e.preventDefault();try{document.execCommand(b.dataset.cmd,false,null);}catch(_){}}});
+// Paste into an editor: clean the clipboard down to plain B/I/U so long pastes
+// from the web don't drag in stray fonts, colors, or embedded media.
+document.addEventListener('paste',e=>{
+  const ed=e.target.closest&&e.target.closest('[data-rte]');if(!ed)return;
+  e.preventDefault();
+  const cd=e.clipboardData||window.clipboardData;if(!cd)return;
+  const html=cd.getData('text/html'),text=cd.getData('text/plain');
+  const clean=html?sanitizeRich(html):plainToHtml(text);
+  try{document.execCommand('insertHTML',false,clean);}catch(_){}
+});
+
 /* ---------- MODAL ---------- */
 let modalSave=null;
 function openModal(opts){
   modalSave=opts.onSave;
   const fields=opts.fields.map(fl=>{
     let inp;
-    if(fl.type==='textarea')inp='<textarea class="inp" data-k="'+fl.key+'" placeholder="'+esc(fl.placeholder||'')+'">'+esc(fl.value||'')+'</textarea>';
+    if(fl.type==='rich')inp=richEditor(fl.key,fl.value||'',fl.placeholder);
+    else if(fl.type==='textarea')inp='<textarea class="inp" data-k="'+fl.key+'" placeholder="'+esc(fl.placeholder||'')+'">'+esc(fl.value||'')+'</textarea>';
     else if(fl.type==='select')inp='<select class="inp" data-k="'+fl.key+'">'+fl.options.map(o=>'<option value="'+esc(o.v)+'"'+(String(fl.value)===String(o.v)?' selected':'')+'>'+esc(o.l)+'</option>').join('')+'</select>';
     else if(fl.type==='days')inp='<div class="daypick" data-k="'+fl.key+'">'+['Su','Mo','Tu','We','Th','Fr','Sa'].map((d,i)=>'<button type="button" class="daychip'+((fl.value||[]).indexOf(i)>=0?' on':'')+'" data-act="daychip" data-d="'+i+'">'+d+'</button>').join('')+'</div>';
     else inp='<input class="inp" data-k="'+fl.key+'" type="'+(fl.type||'text')+'" value="'+esc(fl.value==null?'':fl.value)+'" placeholder="'+esc(fl.placeholder||'')+'"'+(fl.type==='number'?' inputmode="'+(fl.dec?'decimal':'numeric')+'" step="'+(fl.dec?'any':'1')+'"':'')+'>';
@@ -2596,7 +2662,7 @@ function openModal(opts){
   const first=$('#modal-root .inp');if(first)setTimeout(()=>first.focus(),40);
 }
 function closeModal(){$('#modal-root').innerHTML='';modalSave=null;}
-function collectModal(){const vals={};document.querySelectorAll('#modal-root [data-k]').forEach(e=>{if(e.classList.contains('daypick'))vals[e.dataset.k]=[...e.querySelectorAll('.daychip.on')].map(c=>+c.dataset.d);else vals[e.dataset.k]=e.value.trim();});return vals;}
+function collectModal(){const vals={};document.querySelectorAll('#modal-root [data-k]').forEach(e=>{if(e.classList.contains('daypick'))vals[e.dataset.k]=[...e.querySelectorAll('.daychip.on')].map(c=>+c.dataset.d);else if(e.hasAttribute('data-rte'))vals[e.dataset.k]=sanitizeRich(e.innerHTML);else vals[e.dataset.k]=e.value.trim();});return vals;}
 // show/hide modal fields tagged with showWhen based on a controlling field's value
 function applyModalConds(){
   document.querySelectorAll('#modal-root .field[data-cond-key]').forEach(f=>{
@@ -3211,16 +3277,16 @@ const actions={
 
   /* reading */
   'read-add'(){openModal({title:'Add to shelf',ok:'Add',fields:[
-    {key:'type',label:'Type',type:'select',value:'book',half:true,options:[{v:'book',l:'Book'},{v:'podcast',l:'Podcast'}]},
+    {key:'type',label:'Type',type:'select',value:'book',half:true,options:[{v:'book',l:'Book'},{v:'podcast',l:'Podcast'},{v:'other',l:'Other'}]},
     {key:'status',label:'Status',type:'select',value:'want',half:true,options:[{v:'want',l:'Want to'},{v:'reading',l:'In progress'},{v:'done',l:'Finished'}]},
     {key:'title',label:'Title'},
     {key:'author',label:'Author / host'},
     {key:'link',label:'Link (optional) — Audible, Goodreads, Spotify…',placeholder:'https://…'},
     {key:'rating',label:'Rating (if finished)',type:'select',value:'0',options:[{v:'0',l:'—'},{v:'1',l:'★'},{v:'2',l:'★★'},{v:'3',l:'★★★'},{v:'4',l:'★★★★'},{v:'5',l:'★★★★★'}]},
-    {key:'notes',label:'First note / reflection (optional)',type:'textarea'}
-  ],onSave(v){if(!v.title)return;S().reading.push({id:uid(),type:v.type,status:v.status,title:v.title,author:v.author,link:normUrl(v.link),rating:+v.rating||0,noteLog:v.notes?[{id:uid(),date:todayStr(),text:v.notes}]:[]});commit();}});},
+    {key:'notes',label:'First note / reflection (optional)',type:'rich',placeholder:'Ideas, quotes, takeaways…'}
+  ],onSave(v){if(!v.title)return;S().reading.push({id:uid(),type:v.type,status:v.status,title:v.title,author:v.author,link:normUrl(v.link),rating:+v.rating||0,noteLog:(v.notes&&!rteEmpty(v.notes))?[{id:uid(),date:todayStr(),title:'',html:v.notes}]:[]});commit();}});},
   'read-edit'(el){const r=S().reading.find(x=>x.id===el.dataset.id);if(!r)return;openModal({title:'Edit',fields:[
-    {key:'type',label:'Type',type:'select',value:r.type,half:true,options:[{v:'book',l:'Book'},{v:'podcast',l:'Podcast'}]},
+    {key:'type',label:'Type',type:'select',value:r.type,half:true,options:[{v:'book',l:'Book'},{v:'podcast',l:'Podcast'},{v:'other',l:'Other'}]},
     {key:'status',label:'Status',type:'select',value:r.status,half:true,options:[{v:'want',l:'Want to'},{v:'reading',l:'In progress'},{v:'done',l:'Finished'}]},
     {key:'title',label:'Title',value:r.title},
     {key:'author',label:'Author / host',value:r.author},
@@ -3228,7 +3294,7 @@ const actions={
     {key:'rating',label:'Rating',type:'select',value:String(r.rating||0),options:[0,1,2,3,4,5].map(n=>({v:String(n),l:n?'★'.repeat(n):'—'}))}
   ],onSave(v){if(!v.title)return;Object.assign(r,{type:v.type,status:v.status,title:v.title,author:v.author,link:normUrl(v.link),rating:+v.rating||0});commit();}});},
   'read-view'(el){openReadView(el.dataset.id);},
-  'rnote-add'(el){const r=S().reading.find(x=>x.id===el.dataset.id);if(!r)return;const ta=$('#rnote-text');const t=ta?ta.value.trim():'';if(!t){toast('Write a note first');return;}(r.noteLog=r.noteLog||[]).push({id:uid(),date:todayStr(),text:t});commit();openReadView(r.id);},
+  'rnote-add'(el){const r=S().reading.find(x=>x.id===el.dataset.id);if(!r)return;const title=($('#rnote-title')?$('#rnote-title').value.trim():'');const html=rteGet('rnote-text');if(rteEmpty(html)&&!title){toast('Write a note first');return;}(r.noteLog=r.noteLog||[]).push({id:uid(),date:todayStr(),title:title,html:html});commit();openReadView(r.id);},
   'rnote-del'(el){const r=S().reading.find(x=>x.id===el.dataset.r);if(!r)return;const i=(r.noteLog||[]).findIndex(n=>n.id===el.dataset.id);if(i<0)return;const[rm]=r.noteLog.splice(i,1);commit();openReadView(r.id);toast('Note deleted',()=>{r.noteLog.splice(Math.min(i,r.noteLog.length),0,rm);commit();openReadView(r.id);});},
   'read-del'(el){const i=S().reading.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().reading.splice(i,1);commit();toast('Removed',()=>{S().reading.splice(i,0,rm);commit();});},
   'read-filter'(el){ui.readFilter=el.dataset.id;render();},
@@ -3238,10 +3304,10 @@ const actions={
     const fields=[{key:'type',label:'Type',type:'select',value:type,options:[{v:'daily',l:'Daily'},{v:'weekly',l:'Weekly'},{v:'monthly',l:'Monthly'}]},{key:'date',label:'Date',type:'date',value:todayStr(),half:true}];
     if(type==='daily')fields.push({key:'mood',label:'Mood',type:'select',value:'',half:true,options:[{v:'',l:'—'}].concat(MOODS.map((m,i)=>({v:m,l:m})))});
     fields.push({key:'area',label:'Life area (optional)',type:'select',value:'',options:areaOpts()});
-    fields.push({key:'text',label:'Reflection',type:'textarea',placeholder:prompts[type]});
-    openModal({title:'New entry',ok:'Save',fields,onSave(v){if(!v.text)return;S().journal.push({id:uid(),type:v.type,date:v.date||todayStr(),mood:v.mood||'',area:v.area||'',text:v.text});commit();}});},
-  'jrnl-edit'(el){const j=S().journal.find(x=>x.id===el.dataset.id);if(!j)return;const fields=[{key:'type',label:'Type',type:'select',value:j.type,options:[{v:'daily',l:'Daily'},{v:'weekly',l:'Weekly'},{v:'monthly',l:'Monthly'}]},{key:'date',label:'Date',type:'date',value:j.date,half:true},{key:'mood',label:'Mood',type:'select',value:j.mood||'',half:true,options:[{v:'',l:'—'}].concat(MOODS.map(m=>({v:m,l:m})))},{key:'text',label:'Reflection',type:'textarea',value:j.text}];
-    openModal({title:'Edit entry',fields,onSave(v){if(!v.text)return;Object.assign(j,{type:v.type,date:v.date,mood:v.mood,text:v.text});commit();}});},
+    fields.push({key:'text',label:'Reflection',type:'rich',placeholder:prompts[type]});
+    openModal({title:'New entry',ok:'Save',fields,onSave(v){if(rteEmpty(v.text))return;S().journal.push({id:uid(),type:v.type,date:v.date||todayStr(),mood:v.mood||'',area:v.area||'',html:v.text,text:''});commit();}});},
+  'jrnl-edit'(el){const j=S().journal.find(x=>x.id===el.dataset.id);if(!j)return;const fields=[{key:'type',label:'Type',type:'select',value:j.type,options:[{v:'daily',l:'Daily'},{v:'weekly',l:'Weekly'},{v:'monthly',l:'Monthly'}]},{key:'date',label:'Date',type:'date',value:j.date,half:true},{key:'mood',label:'Mood',type:'select',value:j.mood||'',half:true,options:[{v:'',l:'—'}].concat(MOODS.map(m=>({v:m,l:m})))},{key:'text',label:'Reflection',type:'rich',value:(j.html!=null?j.html:plainToHtml(j.text))}];
+    openModal({title:'Edit entry',fields,onSave(v){if(rteEmpty(v.text))return;Object.assign(j,{type:v.type,date:v.date,mood:v.mood,html:v.text,text:''});commit();}});},
   'jrnl-del'(el){const i=S().journal.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().journal.splice(i,1);commit();toast('Entry deleted',()=>{S().journal.splice(i,0,rm);commit();});},
   'jrnl-filter'(el){ui.jrnlFilter=el.dataset.id;render();},
 
