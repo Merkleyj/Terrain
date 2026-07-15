@@ -1322,15 +1322,15 @@ function openAddEntry(date){
   typeOpts.push({v:'meeting',l:'Meeting'});
   if(!typeOpts.length){toast('Turn on To-Do, Projects or Workouts in Settings first');return;}
   const fields=[
-    {key:'text',label:'Entry (not needed for workouts)',placeholder:'What\u2019s happening?'},
+    {key:'text',label:'Title',placeholder:'What\u2019s happening?',showWhen:{key:'type',vals:['todo','project','meeting']}},
     {key:'type',label:'Type',type:'select',value:typeOpts[0].v,options:typeOpts,half:true},
     {key:'date',label:'Date',type:'date',value:date,half:true}
   ];
-  if(projs.length)fields.push({key:'proj',label:'Project (for project tasks)',type:'select',value:projs[0].id,options:projs.map(p=>({v:p.id,l:p.name}))});
-  if(wks.length)fields.push({key:'wk',label:'Workout (for workout entries)',type:'select',value:wks[0].id,options:wks.map(w=>({v:w.id,l:w.name}))});
-  fields.push({key:'priority',label:'Priority (for to-dos)',type:'select',value:'med',options:[{v:'high',l:'High'},{v:'med',l:'Medium'},{v:'low',l:'Low'}]});
-  fields.push({key:'time',label:'Time (for meetings)',type:'time',half:true});
-  fields.push({key:'link',label:'Meeting link (for meetings)',placeholder:'https://…',half:true});
+  if(projs.length)fields.push({key:'proj',label:'Project',type:'select',value:projs[0].id,options:projs.map(p=>({v:p.id,l:p.name})),showWhen:{key:'type',vals:['project']}});
+  if(wks.length)fields.push({key:'wk',label:'Workout',type:'select',value:wks[0].id,options:wks.map(w=>({v:w.id,l:w.name})),showWhen:{key:'type',vals:['workout']}});
+  fields.push({key:'priority',label:'Priority',type:'select',value:'med',options:[{v:'high',l:'High'},{v:'med',l:'Medium'},{v:'low',l:'Low'}],showWhen:{key:'type',vals:['todo']}});
+  fields.push({key:'time',label:'Time',type:'time',half:true,showWhen:{key:'type',vals:['meeting']}});
+  fields.push({key:'link',label:'Meeting link',placeholder:'https://…',half:true,showWhen:{key:'type',vals:['meeting']}});
   openModal({title:'Add to calendar',ok:'Add',fields,onSave(v){
     const dt=v.date||date;
     if(v.type==='meeting'){if(!v.text)return;S().meetings.push({id:uid(),date:dt,title:v.text,time:v.time||'',link:v.link?normUrl(v.link):''});}
@@ -2569,7 +2569,7 @@ function openModal(opts){
     else if(fl.type==='select')inp='<select class="inp" data-k="'+fl.key+'">'+fl.options.map(o=>'<option value="'+esc(o.v)+'"'+(String(fl.value)===String(o.v)?' selected':'')+'>'+esc(o.l)+'</option>').join('')+'</select>';
     else if(fl.type==='days')inp='<div class="daypick" data-k="'+fl.key+'">'+['Su','Mo','Tu','We','Th','Fr','Sa'].map((d,i)=>'<button type="button" class="daychip'+((fl.value||[]).indexOf(i)>=0?' on':'')+'" data-act="daychip" data-d="'+i+'">'+d+'</button>').join('')+'</div>';
     else inp='<input class="inp" data-k="'+fl.key+'" type="'+(fl.type||'text')+'" value="'+esc(fl.value==null?'':fl.value)+'" placeholder="'+esc(fl.placeholder||'')+'"'+(fl.type==='number'?' inputmode="'+(fl.dec?'decimal':'numeric')+'" step="'+(fl.dec?'any':'1')+'"':'')+'>';
-    return '<div class="field'+(fl.half?' half':'')+'"><label>'+esc(fl.label)+'</label>'+inp+'</div>';
+    return '<div class="field'+(fl.half?' half':'')+'"'+(fl.showWhen?' data-cond-key="'+fl.showWhen.key+'" data-cond-vals="'+fl.showWhen.vals.join('|')+'"':'')+'><label>'+esc(fl.label)+'</label>'+inp+'</div>';
   });
   // group halves into rows
   let body='';const flds=opts.fields;
@@ -2579,10 +2579,20 @@ function openModal(opts){
   }
   $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal"><div class="modal-h"><h3>'+esc(opts.title)+'</h3></div><div class="modal-b">'+body+'</div><div class="modal-f"><button class="btn ghost" data-act="modal-cancel">Cancel</button><button class="btn primary" data-act="modal-ok">'+esc(opts.ok||'Save')+'</button></div></div></div>';
   stripAutofill($('#modal-root'));
+  applyModalConds();
   const first=$('#modal-root .inp');if(first)setTimeout(()=>first.focus(),40);
 }
 function closeModal(){$('#modal-root').innerHTML='';modalSave=null;}
 function collectModal(){const vals={};document.querySelectorAll('#modal-root [data-k]').forEach(e=>{if(e.classList.contains('daypick'))vals[e.dataset.k]=[...e.querySelectorAll('.daychip.on')].map(c=>+c.dataset.d);else vals[e.dataset.k]=e.value.trim();});return vals;}
+// show/hide modal fields tagged with showWhen based on a controlling field's value
+function applyModalConds(){
+  document.querySelectorAll('#modal-root .field[data-cond-key]').forEach(f=>{
+    const ctrl=document.querySelector('#modal-root [data-k="'+f.dataset.condKey+'"]');
+    f.style.display=(f.dataset.condVals||'').split('|').indexOf(ctrl?ctrl.value:'')>=0?'':'none';
+  });
+  document.querySelectorAll('#modal-root .field-row').forEach(row=>{const fs=[...row.querySelectorAll('.field')];row.style.display=(fs.length&&fs.every(f=>f.style.display==='none'))?'none':'';});
+}
+document.addEventListener('change',e=>{if(e.target.closest('#modal-root [data-k]'))applyModalConds();});
 
 /* ---------- TOAST / UNDO ---------- */
 let toastT,lastUndo=null;
