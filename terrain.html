@@ -27,6 +27,7 @@
   --stone:#A99E8C; --stone-bg:#EBE5D9;
   --plum:#8A6A72; --plum-bg:#EEE2E4;
   --pine:#5E7A73; --pine-bg:#E1EAE6;
+  --meet:#5B7080; --meet-bg:#E1E7EB;
   --shadow:0 1px 2px rgba(44,42,36,.04), 0 8px 24px -12px rgba(44,42,36,.14);
   --shadow-sm:0 1px 2px rgba(44,42,36,.05);
   --r:14px; --r-sm:10px;
@@ -119,6 +120,19 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .chip:hover{border-color:var(--stone)}
 .chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .chip svg{width:13px;height:13px;vertical-align:-2px;flex:none}
+.prio-t{word-break:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
+.prio-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:5px}
+/* per-habit consistency tracker */
+.hc-row{display:flex;align-items:center;gap:12px;padding:9px 2px;border-bottom:1px solid var(--line)}
+.hc-row:last-child{border-bottom:none}
+.hc-name{flex:1;min-width:40px;font-weight:500;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hc-blocks{display:flex;gap:2px;flex:none}
+.hcb{width:12px;height:12px;border-radius:3px;background:var(--track);flex:none}
+.hcb.on{background:var(--sage)}
+.hcb.today{box-shadow:inset 0 0 0 1.5px var(--clay)}
+.hc-pct{display:flex;align-items:center;gap:5px;flex:none;justify-content:flex-end}
+.hc-pct .hcw{width:22px;height:22px;flex:none}
+.hc-pct span{font-family:var(--mono);font-size:12px;color:var(--ink-soft);font-weight:600;min-width:30px;text-align:right}
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;letter-spacing:.01em;white-space:nowrap}
 .tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;color:var(--ink-soft);background:var(--surface-2)}
 .tag svg{width:11px;height:11px;flex:none;opacity:.85}
@@ -597,7 +611,7 @@ function defaults(){
     runs:[],runPlan:[],
     assets:[],debts:[],nwSnaps:[],budgetCats:[],spend:[],savings:[],bills:[],
     debtExtra:0,debtMode:'avalanche',
-    wins:[],sleepLog:[],skills:[],inbox:[],big3:{},reviews:{},areas:[],goalHist:{},focusLog:[],savedFoods:[],savedMeals:[],
+    wins:[],sleepLog:[],skills:[],inbox:[],big3:{},reviews:{},areas:[],goalHist:{},focusLog:[],savedFoods:[],savedMeals:[],meetings:[],
     vision:{statement:'',anti:'',theme:'',identities:[],values:[]},
     settings:{name:'',tabs:{}},
     reading:[],
@@ -640,7 +654,7 @@ const Store={
   ensure(){
     const s=this.state;
     if(!s.v)s.v=1;
-    ['todos','goals','projects','habits','bucket','reading','journal','workouts','workoutLog','workoutSched','runs','runPlan','assets','debts','nwSnaps','budgetCats','spend','savings','bills','wins','sleepLog','skills','inbox'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[];});
+    ['todos','goals','projects','habits','bucket','reading','journal','workouts','workoutLog','workoutSched','runs','runPlan','assets','debts','nwSnaps','budgetCats','spend','savings','bills','wins','sleepLog','skills','inbox','meetings'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[];});
     if(!s.big3||typeof s.big3!=='object')s.big3={};
     if(!s.goalHist||typeof s.goalHist!=='object')s.goalHist={};
     ['focusLog','savedFoods','savedMeals'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[];});
@@ -718,7 +732,7 @@ function enabled(id){
 
 /* ---------- transient ui state ---------- */
 const ui={view:'overview',moreOpen:false,qaOpen:false,qaMode:'main',tv:false,tvClock:null,habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
-  calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',focus:null,fTimer:null,skTimer:null,skTick:null,
+  calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',focus:null,fTimer:null,skTimer:null,skTick:null,
   todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all'};
 
 /* ---------- computed ---------- */
@@ -1090,7 +1104,7 @@ function vOverview(){
     (hstats.length?'<div class="hero-stats">'+hstats.join('')+'</div>':'')+'</div>';
 
   // priorities card rows w/ real toggles
-  const prioReal=prio.length?prio.map(x=>{const rd=relDue(x.due);return '<div class="row" style="padding:8px 2px"><button class="chk" data-act="todo-toggle" data-id="'+x.id+'">'+svg(I.check)+'</button><div class="txt"><div class="t">'+esc(x.text)+'</div></div>'+(x.priority==='high'?pill('High','var(--clay)','var(--clay-bg)'):'')+(rd?'<span class="tag" style="color:'+(rd.cls==='over'?'var(--clay)':'var(--ink-soft)')+'">'+rd.txt+'</span>':'')+'</div>';}).join(''):emptyBox('No urgent priorities — nice.','check');
+  const prioReal=prio.length?prio.map(x=>{const rd=relDue(x.due);const meta=(x.priority==='high'?pill('High','var(--clay)','var(--clay-bg)'):'')+(rd?'<span class="tag" style="color:'+(rd.cls==='over'?'var(--clay)':'var(--ink-soft)')+'">'+rd.txt+'</span>':'');return '<div class="row" style="padding:8px 2px;align-items:flex-start"><button class="chk" data-act="todo-toggle" data-id="'+x.id+'">'+svg(I.check)+'</button><div class="txt"><div class="t prio-t">'+esc(x.text)+'</div>'+(meta?'<div class="prio-meta">'+meta+'</div>':'')+'</div></div>';}).join(''):emptyBox('No urgent priorities — nice.','check');
 
   const goalsHtml=activeGoals.length?activeGoals.slice(0,4).map(g=>{
     const p=goalPct(g);return '<div style="margin-bottom:13px"><div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px"><span style="font-weight:600">'+esc(g.title)+'</span><span class="mono faint">'+p+'%</span></div>'+bar(p,'var(--'+goalColorName(g)+')')+'</div>';
@@ -1182,8 +1196,9 @@ function macroRow(lab,val,goal,color,unit){
 }
 
 /* ---------- VIEW: CALENDAR ---------- */
-const CAL_SRC={todo:{color:'stone',label:'To-Do',view:'todo'},goal:{color:'sage',label:'Goal',view:'goals'},project:{color:'clay',label:'Project',view:'projects'},workout:{color:'plum',label:'Workout',view:'workouts'},run:{color:'wheat',label:'Run',view:'running'},finance:{color:'pine',label:'Finance',view:'bills'}};
-const CAL_ORDER={todo:0,goal:1,project:2,workout:3,run:4,finance:5};
+const CAL_SRC={meeting:{color:'meet',label:'Meeting',view:'calendar'},todo:{color:'stone',label:'To-Do',view:'todo'},goal:{color:'sage',label:'Goal',view:'goals'},project:{color:'clay',label:'Project',view:'projects'},workout:{color:'plum',label:'Workout',view:'workouts'},run:{color:'wheat',label:'Run',view:'running'},finance:{color:'pine',label:'Finance',view:'bills'}};
+const CAL_ORDER={meeting:-1,todo:0,goal:1,project:2,workout:3,run:4,finance:5};
+function fmt12(t){const m=/^(\d{1,2}):(\d{2})$/.exec(t||'');if(!m)return t||'';let h=+m[1];const ap=h<12?'AM':'PM';h=h%12||12;return h+':'+m[2]+' '+ap;}
 function dayEvents(date){
   const out=[];
   if(enabled('todo'))S().todos.forEach(t=>{if(t.due===date)out.push({src:'todo',id:t.id,text:t.text,done:!!t.done});});
@@ -1198,6 +1213,7 @@ function dayEvents(date){
   }
   if(enabled('bills'))S().bills.forEach(b=>{if(billOccurs(b,date))out.push({src:'finance',id:b.id,text:b.name+' \u00b7 '+money(b.amt),done:(b.paidLog||[]).includes(date),view:'bills'});});
   if(enabled('savings'))S().savings.forEach(g=>{if(g.targetDate===date){const sv=(g.contribs||[]).reduce((a,c)=>a+(+c.amt||0),0);out.push({src:'finance',id:g.id,text:'Savings goal: '+g.name,done:sv>=(+g.target||0),view:'savings'});}});
+  S().meetings.forEach(mt=>{if(mt.date===date)out.push({src:'meeting',id:mt.id,text:(mt.time?fmt12(mt.time)+' · ':'')+mt.title,done:false,view:'calendar',link:mt.link||''});});
   out.forEach(e=>{if(!e.view)e.view=CAL_SRC[e.src].view;});
   return out.sort((a,b)=>CAL_ORDER[a.src]-CAL_ORDER[b.src]);
 }
@@ -1266,6 +1282,12 @@ function openDay(date){
   const hs=habitStat(date), mt=macroTotals(date), mg=S().macroGoals;
   const calP=pct(mt.cal,mg.cal);
   const evHtml=evs.length?evs.map(e=>{const m=CAL_SRC[e.src];
+    if(e.src==='meeting'){
+      return '<div class="day-ev" style="cursor:default"><span class="cal-dot" style="background:var(--meet)"></span>'+
+        '<span class="day-ev-txt">'+esc(e.text)+'</span>'+
+        (e.link?'<a class="tag" href="'+esc(e.link)+'" target="_blank" rel="noopener noreferrer" style="color:var(--meet);text-decoration:underline">Join</a>':'<span class="tag" style="color:var(--meet)">Meeting</span>')+
+        '<button class="icon-btn del" data-act="meet-del" data-id="'+e.id+'" style="margin-left:2px" aria-label="delete meeting">'+svg(I.trash)+'</button></div>';
+    }
     return '<button class="day-ev" data-act="cal-goto" data-view="'+e.view+'"><span class="cal-dot" style="background:var(--'+m.color+')"></span>'+
       '<span class="day-ev-txt'+(e.done?' done':'')+'">'+esc(e.text)+(e.sub?' <span class="faint">· '+esc(e.sub)+'</span>':'')+'</span>'+
       '<span class="tag" style="color:var(--'+m.color+')">'+m.label+'</span></button>';
@@ -1292,6 +1314,7 @@ function openAddEntry(date){
   if(enabled('todo'))typeOpts.push({v:'todo',l:'To-Do'});
   if(projs.length)typeOpts.push({v:'project',l:'Project task'});
   if(wks.length)typeOpts.push({v:'workout',l:'Workout'});
+  typeOpts.push({v:'meeting',l:'Meeting'});
   if(!typeOpts.length){toast('Turn on To-Do, Projects or Workouts in Settings first');return;}
   const fields=[
     {key:'text',label:'Entry (not needed for workouts)',placeholder:'What\u2019s happening?'},
@@ -1301,9 +1324,12 @@ function openAddEntry(date){
   if(projs.length)fields.push({key:'proj',label:'Project (for project tasks)',type:'select',value:projs[0].id,options:projs.map(p=>({v:p.id,l:p.name}))});
   if(wks.length)fields.push({key:'wk',label:'Workout (for workout entries)',type:'select',value:wks[0].id,options:wks.map(w=>({v:w.id,l:w.name}))});
   fields.push({key:'priority',label:'Priority (for to-dos)',type:'select',value:'med',options:[{v:'high',l:'High'},{v:'med',l:'Medium'},{v:'low',l:'Low'}]});
+  fields.push({key:'time',label:'Time (for meetings)',type:'time',half:true});
+  fields.push({key:'link',label:'Meeting link (for meetings)',placeholder:'https://…',half:true});
   openModal({title:'Add to calendar',ok:'Add',fields,onSave(v){
     const dt=v.date||date;
-    if(v.type==='workout'&&wks.length){const w=S().workouts.find(x=>x.id===v.wk)||wks[0];S().workoutSched.push({id:uid(),date:dt,workoutId:w.id});}
+    if(v.type==='meeting'){if(!v.text)return;S().meetings.push({id:uid(),date:dt,title:v.text,time:v.time||'',link:v.link?normUrl(v.link):''});}
+    else if(v.type==='workout'&&wks.length){const w=S().workouts.find(x=>x.id===v.wk)||wks[0];S().workoutSched.push({id:uid(),date:dt,workoutId:w.id});}
     else if(v.type==='project'&&projs.length){if(!v.text)return;const p=S().projects.find(x=>x.id===v.proj)||projs[0];(p.tasks=p.tasks||[]).push({id:uid(),text:v.text,status:'todo',due:dt});}
     else{if(!v.text)return;S().todos.push({id:uid(),text:v.text,done:false,priority:v.priority||'med',due:dt,created:todayStr()});}
     ui.calMonth=firstOfMonth(dt);
@@ -1706,6 +1732,19 @@ function vProjects(){
 }
 
 /* ---------- VIEW: HABITS ---------- */
+function habitConsistency(){
+  const habits=S().habits;if(!habits.length)return '';
+  const N=14,t=todayStr();
+  const days=[];for(let i=N-1;i>=0;i--)days.push(addDays(t,-i));
+  const rows=habits.map(h=>{
+    let done=0;
+    const blocks=days.map(dd=>{const on=!!(S().habitLog[dd]&&S().habitLog[dd][h.id]);if(on)done++;return '<span class="hcb'+(on?' on':'')+(dd===t?' today':'')+'" title="'+fmtD(dd)+(on?' · done':'')+'"></span>';}).join('');
+    const p=Math.round(done/N*100),r=9,c=2*Math.PI*r;
+    const wheel='<svg class="hcw" viewBox="0 0 24 24"><circle cx="12" cy="12" r="'+r+'" fill="none" stroke="var(--track)" stroke-width="3"/><circle cx="12" cy="12" r="'+r+'" fill="none" stroke="var(--sage)" stroke-width="3" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+(c-c*p/100)+'" transform="rotate(-90 12 12)"/></svg>';
+    return '<div class="hc-row"><div class="hc-name">'+esc(h.name)+'</div><div class="hc-blocks">'+blocks+'</div><div class="hc-pct">'+wheel+'<span>'+p+'%</span></div></div>';
+  }).join('');
+  return '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Habit tracker</h3><span class="spacer mono faint" style="font-size:12px">last '+N+' days</span></div>'+rows+'</div>';
+}
 function vHabits(){
   const d=ui.habitDate, isToday=d===todayStr();
   const st=habitStat(d), log=S().habitLog[d]||{}, streak=currentStreak();
@@ -1722,7 +1761,7 @@ function vHabits(){
     '<div style="position:relative;width:128px;height:128px;margin:4px auto 0">'+ring+'<div style="position:absolute;inset:0;display:grid;place-items:center"><div><div style="font-family:var(--serif);font-size:32px;font-weight:600;line-height:1">'+st.pct+'%</div></div></div></div>'+
     '<div style="display:flex;justify-content:center;gap:26px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)"><div class="metric"><span class="n" style="color:var(--clay);display:flex;align-items:center;gap:4px;justify-content:center">'+svg(I.flame,'')+streak+'</span><span class="l">Streak</span></div><div class="metric"><span class="n">'+st.done+'</span><span class="l">Done</span></div></div></div>'+
     '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Last 30 days</h3></div><div class="strip">'+strip+'</div><p class="faint" style="font-size:12px;margin:10px 0 0">Darker means a more complete day.</p></div>';
-  return head+'<div class="grid g2 hab-grid"><div class="hab-left">'+left+'</div><div class="hab-right">'+right+'</div></div>';
+  return head+'<div class="grid g2 hab-grid"><div class="hab-left">'+left+'</div><div class="hab-right">'+right+'</div></div>'+habitConsistency();
 }
 
 /* ---------- VIEW: MACROS ---------- */
@@ -1852,7 +1891,8 @@ function vWorkouts(){
   const head='<div class="sect-head"><div class="lead"><h2>Workouts</h2><p>Build workout templates, then log sessions against them \u2014 weight \u00d7 reps for every set. Schedule sessions and they land on your calendar.</p></div>'+
     '<div class="actions"><button class="btn primary" data-act="wk-add">'+svg(I.plus)+'New workout</button></div></div>';
   const cards=ws.length?ws.map(w=>{
-    const exs=(w.exercises||[]).map(ex=>'<div class="row" style="padding:7px 2px"><div class="txt"><div class="t" style="font-size:13.5px">'+esc(ex.name)+'</div></div><button class="icon-btn del" data-act="wex-del" data-wk="'+w.id+'" data-id="'+ex.id+'">'+svg(I.trash)+'</button></div>').join('');
+    const exItems=(w.exercises||[]).map(ex=>'<div class="row" data-drag-item data-id="'+ex.id+'" style="padding:6px 2px"><span class="grip" data-grip aria-label="drag to reorder">'+svg(I.grip)+'</span><div class="txt"><div class="t" style="font-size:13.5px">'+esc(ex.name)+'</div></div><button class="icon-btn" data-act="wex-edit" data-wk="'+w.id+'" data-id="'+ex.id+'" aria-label="rename">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="wex-del" data-wk="'+w.id+'" data-id="'+ex.id+'">'+svg(I.trash)+'</button></div>').join('');
+    const exs=exItems?'<div data-draglist data-wkid="'+w.id+'">'+exItems+'</div>':'';
     return '<div class="card" style="margin-bottom:16px">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'+
         '<h3 style="font-family:var(--serif);font-size:18px;font-weight:600;margin:0;letter-spacing:-.01em;display:flex;align-items:center;gap:9px"><span style="width:11px;height:11px;border-radius:3px;background:var(--plum);display:inline-block"></span>'+esc(w.name)+'</h3>'+
@@ -1902,30 +1942,29 @@ function parseTimeStr(str){if(!str)return 0;const p=String(str).split(':').map(x
 function fmtSec(sec){sec=Math.round(sec);const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),ss=sec%60;return(h?h+':'+String(m).padStart(2,'0'):String(m))+':'+String(ss).padStart(2,'0');}
 function paceStr(sec,mi){if(!mi||!sec)return'\u2014';return fmtSec(sec/mi)+'/mi';}
 function weekSun(ds){return addDays(ds,-parseD(ds).getDay());}
-function genPlan(race,weeks,dist){
+function genPlan(race,weeks,dist,rpw,longDow){
+  rpw=clamp(+rpw||4,2,6);
+  longDow=(longDow==null||longDow==='')?parseD(race).getDay():+longDow;
   const half=dist==='half';
   const peak=half?11:20,base=half?4:6,raceMi=half?13.1:26.2;
+  const t=todayStr(),seen=new Set([race]);
   const out=[{id:uid(),date:race,label:(half?'Half marathon':'Marathon')+' \u00b7 '+raceMi+' mi',miles:raceMi,kind:'race'}];
-  const shake=addDays(race,-2);
-  if(shake>todayStr())out.push({id:uid(),date:shake,label:'Shakeout \u00b7 2 mi',miles:2,kind:'easy'});
+  const offs=[-2,-4,-6,-1,-3];               // extra-run days relative to the long run
   for(let k=1;k<weeks;k++){
-    const longD=addDays(race,-7*k);
+    const b7=addDays(race,-7*k);
+    const longD=addDays(b7,longDow-parseD(b7).getDay());   // chosen weekday in that week
     let long;
     if(k===1)long=Math.round(peak*0.4);
     else if(k===2)long=Math.round(peak*0.6);
-    else{
-      const span=(weeks-1)-3;
-      const prog=span>0?clamp((weeks-1-k)/span,0,1):1;
-      long=Math.round(base+(peak-base)*prog);
-      if(span>0&&(weeks-1-k)%4===3)long=Math.max(base,Math.round(long*0.75));
-    }
-    const mid=clamp(Math.round(long*0.5),3,half?6:10);
-    const easy=clamp(Math.round(long*0.3),3,6);
-    [[longD,'Long run',long],[addDays(longD,-2),'Mid-week run',mid],[addDays(longD,-4),'Easy run',easy]].forEach(x=>{
-      if(x[0]>todayStr())out.push({id:uid(),date:x[0],label:x[1]+' \u00b7 '+x[2]+' mi',miles:x[2],kind:x[1]==='Long run'?'long':'run'});
-    });
+    else{const span=(weeks-1)-3;const prog=span>0?clamp((weeks-1-k)/span,0,1):1;long=Math.round(base+(peak-base)*prog);if(span>0&&(weeks-1-k)%4===3)long=Math.max(base,Math.round(long*0.75));}
+    const mid=clamp(Math.round(long*0.5),3,half?6:10),easy=clamp(Math.round(long*0.3),3,6);
+    const runs=[[longD,'Long run',long,'long']];
+    for(let j=0;j<rpw-1;j++){const od=addDays(longD,offs[j%offs.length]);const lbl=j===0?'Mid-week run':'Easy run';runs.push([od,lbl,j===0?mid:easy,j===0?'run':'easy']);}
+    runs.forEach(x=>{if(x[0]>t&&x[0]<race&&!seen.has(x[0])){seen.add(x[0]);out.push({id:uid(),date:x[0],label:x[1]+' \u00b7 '+x[2]+' mi',miles:x[2],kind:x[3]});}});
   }
-  return out;
+  const shake=addDays(race,-2);
+  if(shake>t&&!seen.has(shake))out.push({id:uid(),date:shake,label:'Shakeout \u00b7 2 mi',miles:2,kind:'easy'});
+  return out.sort((a,b)=>a.date<b.date?-1:1);
 }
 function vRunning(){
   const t=todayStr(),runs=S().runs.slice().sort((a,b)=>a.date<b.date?1:-1);
@@ -1951,7 +1990,11 @@ function vRunning(){
   const chart='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Weekly mileage</h3><span class="spacer mono faint" style="font-size:12px">8 weeks</span></div><div class="wkchart">'+bars+'</div><div class="wklabels">'+wlabels+'</div></div>';
   const plan=S().runPlan||[];
   let planHtml;
-  if(plan.length){
+  if(ui.planPreview){
+    const pv=ui.planPreview.slice().sort((a,b)=>a.date<b.date?-1:1);
+    const rows=pv.map(p=>'<div class="row" style="padding:7px 2px"><div style="width:8px;height:8px;border-radius:50%;background:var(--wheat);flex:none"></div><div class="txt"><div class="t" style="font-size:13px">'+esc(p.label)+'</div><div class="sub">'+fmtDL(p.date)+'</div></div>'+(p.kind==='race'?'<span class="tag" style="color:var(--clay)">Race</span>':'<button class="icon-btn del" data-act="plan-prev-del" data-id="'+p.id+'">'+svg(I.trash)+'</button>')+'</div>').join('');
+    planHtml='<div class="card"><div class="card-h"><h3>Plan preview</h3><span class="spacer mono faint" style="font-size:12px">'+ui.planPreview.length+' runs</span></div><p class="faint" style="font-size:12px;margin:0 0 8px">Remove any you don’t want, then add them to your calendar.</p><div style="max-height:340px;overflow:auto">'+rows+'</div><div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><button class="btn primary sm" data-act="plan-confirm">'+svg(I.calendar)+'Add to calendar</button><button class="btn sm" data-act="plan-discard">Discard</button></div></div>';
+  }else if(plan.length){
     const race=plan.find(p=>p.kind==='race');
     const next=plan.filter(p=>p.date>=t).sort((a,b)=>a.date<b.date?-1:1).slice(0,5);
     const rows=next.length?next.map(p=>{
@@ -2221,7 +2264,12 @@ function vSleep(){
 function vVision(){
   const v=S().vision;
   const head='<div class="sect-head"><div class="lead"><h2>Vision &amp; Identity</h2><p>The layer above goals \u2014 who you\u2019re becoming and why. Identity statements rotate through your dashboard greeting so you see them daily.</p></div></div>';
-  const idents=(v.identities||[]).map(x=>'<div class="row" style="padding:8px 2px"><div style="width:8px;height:8px;border-radius:50%;background:var(--sage);flex:none"></div><div class="txt"><div class="t" style="font-size:13.5px">'+esc(x.text)+'</div></div><button class="icon-btn del" data-act="ident-del" data-id="'+x.id+'">'+svg(I.trash)+'</button></div>').join('');
+  const areaList=S().areas.filter(a=>!a.hidden);
+  const areaName=id=>{const a=S().areas.find(x=>x.id===id);return a?a.name:'General';};
+  const byArea={};(v.identities||[]).forEach(x=>{const k=x.area||'';(byArea[k]=byArea[k]||[]).push(x);});
+  const identRow=x=>'<div class="row" style="padding:7px 2px"><div style="width:8px;height:8px;border-radius:50%;background:var(--sage);flex:none"></div><div class="txt"><div class="t" style="font-size:13.5px">'+esc(x.text)+'</div></div><button class="icon-btn del" data-act="ident-del" data-id="'+x.id+'">'+svg(I.trash)+'</button></div>';
+  const identKeys=Object.keys(byArea);
+  const idents=identKeys.length?identKeys.map(k=>'<div class="eyebrow" style="margin:12px 0 2px">'+esc(k?areaName(k):'General')+'</div>'+byArea[k].map(identRow).join('')).join(''):'';
   const vals=(v.values||[]).map(x=>'<span class="setchip">'+esc(x.text)+'<button data-act="val-del" data-id="'+x.id+'" aria-label="remove">\u2715</button></span>').join(' ');
   const left='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Vision</h3><span class="spacer faint" style="font-size:11.5px">saves as you type away</span></div>'+
     '<textarea class="inp" data-change="vis-field" data-key="statement" placeholder="Write the life you\u2019re building \u2014 5\u201310 years out. Where do you live? What does a Tuesday look like? What have you built?" style="min-height:150px">'+esc(v.statement)+'</textarea></div>'+
@@ -2231,7 +2279,7 @@ function vVision(){
     '<input class="inp" data-change="vis-field" data-key="theme" value="'+esc(v.theme)+'" placeholder="e.g. The year of building"></div>'+
     '<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Identity statements</h3></div>'+
     (idents||'<p class="faint" style="font-size:13px;margin:2px 0 8px">\u201cI am someone who\u2026\u201d \u2014 acts follow identity.</p>')+
-    '<div class="addbar" style="margin-top:10px"><input class="inp" id="vi-ident" placeholder="I am someone who\u2026" data-enter="ident-add"><button class="btn sm" data-act="ident-add">'+svg(I.plus)+'</button></div></div>'+
+    '<div class="addbar" style="margin-top:10px"><input class="inp" id="vi-ident" placeholder="I am someone who\u2026" data-enter="ident-add"><select class="inp" id="vi-ident-area" style="flex:none;min-width:118px"><option value="">General</option>'+areaList.map(a=>'<option value="'+a.id+'">'+esc(a.name)+'</option>').join('')+'</select><button class="btn sm" data-act="ident-add">'+svg(I.plus)+'</button></div></div>'+
     '<div class="card"><div class="card-h"><h3>Core values</h3></div>'+
     (vals?'<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">'+vals+'</div>':'<p class="faint" style="font-size:13px;margin:2px 0 10px">A handful of words you can make decisions against.</p>')+
     '<div class="addbar"><input class="inp" id="vi-val" placeholder="e.g. Discipline" data-enter="val-add" style="max-width:220px"><button class="btn sm" data-act="val-add">'+svg(I.plus)+'</button></div></div>';
@@ -2573,6 +2621,7 @@ const actions={
   'cal-today'(){ui.calMonth=firstOfMonth(todayStr());ui.calWeek=weekSun(todayStr());render();},
   'cal-day'(el){openDay(el.dataset.date);},
   'cal-add'(el){openAddEntry(el.dataset.date||todayStr());},
+  'meet-del'(el){const i=S().meetings.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const rm=S().meetings[i];S().meetings.splice(i,1);commit();openDay(rm.date);},
   'cal-goto'(el){closeModal();ui.view=el.dataset.view;render();window.scrollTo(0,0);},
   'cal-open-habits'(el){ui.habitDate=el.dataset.date;closeModal();ui.view='habits';render();window.scrollTo(0,0);},
   'cal-open-macros'(el){ui.macroDate=el.dataset.date;closeModal();ui.view='macros';render();window.scrollTo(0,0);},
@@ -2632,6 +2681,7 @@ const actions={
   'wk-del'(el){const i=S().workouts.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().workouts.splice(i,1);const rmSched=S().workoutSched.filter(s=>s.workoutId===rm.id);S().workoutSched=S().workoutSched.filter(s=>s.workoutId!==rm.id);commit();toast('Workout deleted',()=>{S().workouts.splice(Math.min(i,S().workouts.length),0,rm);S().workoutSched.push(...rmSched);commit();});},
   'wex-add'(el){const w=S().workouts.find(x=>x.id===el.dataset.wk);if(!w)return;const inp=document.querySelector('[data-enter="wex-add"][data-wk="'+el.dataset.wk+'"]');const t=inp?inp.value.trim():'';if(!t)return;(w.exercises=w.exercises||[]).push({id:uid(),name:t});commit();},
   'wex-del'(el){const w=S().workouts.find(x=>x.id===el.dataset.wk);if(!w)return;w.exercises=(w.exercises||[]).filter(x=>x.id!==el.dataset.id);commit();},
+  'wex-edit'(el){const w=S().workouts.find(x=>x.id===el.dataset.wk);if(!w)return;const ex=(w.exercises||[]).find(x=>x.id===el.dataset.id);if(!ex)return;openModal({title:'Rename exercise',ok:'Save',fields:[{key:'name',label:'Exercise',value:ex.name}],onSave(v){if(!v.name)return;ex.name=v.name;commit();}});},
   'wk-sched'(el){const w=S().workouts.find(x=>x.id===el.dataset.id);if(!w)return;openModal({title:'Schedule \u201c'+w.name+'\u201d',ok:'Schedule',fields:[
     {key:'date',label:'First date',type:'date',value:todayStr()},
     {key:'repeat',label:'Repeat',type:'select',value:'1',options:[{v:'1',l:'Just once'},{v:'4',l:'Weekly \u00d7 4'},{v:'8',l:'Weekly \u00d7 8'},{v:'12',l:'Weekly \u00d7 12'}]}
@@ -2673,19 +2723,23 @@ const actions={
     {key:'time',label:'Time (mm:ss)',value:fmtSec(r.sec),half:true},
     {key:'date',label:'Date',type:'date',value:r.date}
   ],onSave(v){const mi=parseFloat(v.mi);if(!mi||mi<=0){toast('Enter the miles');return;}const sec=parseTimeStr(v.time);if(!sec){toast('Enter the time — like 28:30');return;}r.mi=Math.round(mi*100)/100;r.sec=sec;r.date=v.date||r.date;commit();toast('Run updated');}});},
-  'plan-build'(){openModal({title:'Build training plan',ok:'Generate',fields:[
+  'plan-build'(){openModal({title:'Build training plan',ok:'Preview',fields:[
     {key:'date',label:'Race date',type:'date',value:''},
     {key:'dist',label:'Distance',type:'select',value:'marathon',half:true,options:[{v:'marathon',l:'Marathon \u00b7 26.2'},{v:'half',l:'Half marathon \u00b7 13.1'}]},
-    {key:'weeks',label:'Plan length',type:'select',value:'16',half:true,options:[{v:'12',l:'12 weeks'},{v:'16',l:'16 weeks'},{v:'20',l:'20 weeks'}]}
+    {key:'weeks',label:'Plan length (16\u201320 rec. for a marathon)',type:'select',value:'16',half:true,options:[{v:'8',l:'8 weeks'},{v:'12',l:'12 weeks'},{v:'16',l:'16 weeks'},{v:'20',l:'20 weeks'}]},
+    {key:'rpw',label:'Runs per week (4\u20135 recommended)',type:'select',value:'4',half:true,options:[{v:'3',l:'3 days'},{v:'4',l:'4 days'},{v:'5',l:'5 days'},{v:'6',l:'6 days'}]},
+    {key:'longDow',label:'Long run day',type:'select',value:'6',half:true,options:[{v:'0',l:'Sunday'},{v:'1',l:'Monday'},{v:'2',l:'Tuesday'},{v:'3',l:'Wednesday'},{v:'4',l:'Thursday'},{v:'5',l:'Friday'},{v:'6',l:'Saturday'}]}
   ],onSave(v){
     if(!v.date||v.date<=todayStr()){toast('Pick a race date in the future');return;}
     const avail=Math.floor(diffDays(v.date,todayStr())/7);
     if(avail<4){toast('That race is too soon to build a plan around');return;}
     const weeks=Math.min(+v.weeks||16,avail);
-    S().runPlan=genPlan(v.date,weeks,v.dist);
-    ui.calMonth=firstOfMonth(todayStr());
-    commit();toast(weeks+'-week plan added \u2014 check the calendar');
+    ui.planPreview=genPlan(v.date,weeks,v.dist,v.rpw,v.longDow);
+    ui.view='running';render();window.scrollTo(0,0);toast('Preview ready \u2014 edit it, then add to calendar');
   }});},
+  'plan-confirm'(){if(!ui.planPreview||!ui.planPreview.length)return;S().runPlan=ui.planPreview;ui.planPreview=null;ui.calMonth=firstOfMonth(todayStr());commit();toast('Plan added \u2014 check your calendar');},
+  'plan-discard'(){ui.planPreview=null;render();toast('Preview discarded');},
+  'plan-prev-del'(el){if(!ui.planPreview)return;ui.planPreview=ui.planPreview.filter(x=>x.id!==el.dataset.id);render();},
   'plan-clear'(){const old=S().runPlan;S().runPlan=[];commit();toast('Training plan cleared',()=>{S().runPlan=old;commit();});},
 
   /* net worth */
@@ -2806,7 +2860,7 @@ const actions={
   'cal-open-sleep'(){closeModal();ui.view='sleep';render();window.scrollTo(0,0);},
 
   /* vision & identity */
-  'ident-add'(){const t=getInput('vi-ident');if(!t)return;S().vision.identities.push({id:uid(),text:t});commit();},
+  'ident-add'(){const t=getInput('vi-ident');if(!t)return;S().vision.identities=S().vision.identities||[];S().vision.identities.push({id:uid(),text:t,area:getInput('vi-ident-area')||''});commit();},
   'ident-del'(el){S().vision.identities=S().vision.identities.filter(x=>x.id!==el.dataset.id);commit();},
   'val-add'(){const t=getInput('vi-val');if(!t)return;S().vision.values.push({id:uid(),text:t});commit();},
   'val-del'(el){S().vision.values=S().vision.values.filter(x=>x.id!==el.dataset.id);commit();},
@@ -3224,6 +3278,11 @@ function endDrag(){
   const ids=[...dragCtx.list.querySelectorAll('[data-drag-item]')].map(el=>el.dataset.id);
   if(dragCtx.list.dataset.kind==='areas'){
     S().areas.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
+    dragCtx=null;commit();return;
+  }
+  if(dragCtx.list.dataset.wkid){
+    const w=S().workouts.find(x=>x.id===dragCtx.list.dataset.wkid);
+    if(w&&w.exercises)w.exercises.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
     dragCtx=null;commit();return;
   }
   const p=S().projects.find(x=>x.id===dragCtx.pid);
