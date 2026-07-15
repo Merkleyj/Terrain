@@ -344,6 +344,11 @@ details.expl p{font-size:11.5px;color:var(--ink-soft);margin:8px 0 0;line-height
 .field{margin-bottom:14px}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;letter-spacing:.02em}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row .field{display:flex;flex-direction:column}
+.field-row .inp{margin-top:auto}
+.daypick{display:flex;gap:6px;flex-wrap:wrap}
+.daychip{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 0;flex:1;min-width:36px;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;text-align:center;transition:.13s}
+.daychip.on{background:var(--sage);border-color:var(--sage);color:#fff}
 .modal-f{padding:14px 22px 20px;display:flex;gap:9px;justify-content:flex-end;border-top:1px solid var(--line);margin-top:4px}
 
 /* toast */
@@ -1942,25 +1947,34 @@ function parseTimeStr(str){if(!str)return 0;const p=String(str).split(':').map(x
 function fmtSec(sec){sec=Math.round(sec);const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),ss=sec%60;return(h?h+':'+String(m).padStart(2,'0'):String(m))+':'+String(ss).padStart(2,'0');}
 function paceStr(sec,mi){if(!mi||!sec)return'\u2014';return fmtSec(sec/mi)+'/mi';}
 function weekSun(ds){return addDays(ds,-parseD(ds).getDay());}
-function genPlan(race,weeks,dist,rpw,longDow){
-  rpw=clamp(+rpw||4,2,6);
-  longDow=(longDow==null||longDow==='')?parseD(race).getDay():+longDow;
+function genPlan(race,weeks,dist,runDays,longDow){
+  runDays=(runDays&&runDays.length)?runDays.map(Number):[6];
+  longDow=(longDow==null||longDow==='')?runDays[runDays.length-1]:+longDow;
+  if(runDays.indexOf(longDow)<0)runDays.push(longDow);
+  runDays=[...new Set(runDays)].sort((a,b)=>a-b);
+  const others=runDays.filter(d=>d!==longDow);
   const half=dist==='half';
   const peak=half?11:20,base=half?4:6,raceMi=half?13.1:26.2;
   const t=todayStr(),seen=new Set([race]);
   const out=[{id:uid(),date:race,label:(half?'Half marathon':'Marathon')+' \u00b7 '+raceMi+' mi',miles:raceMi,kind:'race'}];
-  const offs=[-2,-4,-6,-1,-3];               // extra-run days relative to the long run
   for(let k=1;k<weeks;k++){
-    const b7=addDays(race,-7*k);
-    const longD=addDays(b7,longDow-parseD(b7).getDay());   // chosen weekday in that week
     let long;
     if(k===1)long=Math.round(peak*0.4);
     else if(k===2)long=Math.round(peak*0.6);
     else{const span=(weeks-1)-3;const prog=span>0?clamp((weeks-1-k)/span,0,1):1;long=Math.round(base+(peak-base)*prog);if(span>0&&(weeks-1-k)%4===3)long=Math.max(base,Math.round(long*0.75));}
     const mid=clamp(Math.round(long*0.5),3,half?6:10),easy=clamp(Math.round(long*0.3),3,6);
-    const runs=[[longD,'Long run',long,'long']];
-    for(let j=0;j<rpw-1;j++){const od=addDays(longD,offs[j%offs.length]);const lbl=j===0?'Mid-week run':'Easy run';runs.push([od,lbl,j===0?mid:easy,j===0?'run':'easy']);}
-    runs.forEach(x=>{if(x[0]>t&&x[0]<race&&!seen.has(x[0])){seen.add(x[0]);out.push({id:uid(),date:x[0],label:x[1]+' \u00b7 '+x[2]+' mi',miles:x[2],kind:x[3]});}});
+    const ref=addDays(race,-7*k);
+    const wkStart=addDays(ref,-parseD(ref).getDay());   // Sunday of that week
+    runDays.forEach(dow=>{
+      const rd=addDays(wkStart,dow);
+      if(rd<=t||rd>=race||seen.has(rd))return;
+      seen.add(rd);
+      let mi,lbl,kind;
+      if(dow===longDow){mi=long;lbl='Long run';kind='long';}
+      else if(others.length&&others.indexOf(dow)===Math.floor(others.length/2)){mi=mid;lbl='Mid-week run';kind='run';}
+      else{mi=easy;lbl='Easy run';kind='easy';}
+      out.push({id:uid(),date:rd,label:lbl+' \u00b7 '+mi+' mi',miles:mi,kind});
+    });
   }
   const shake=addDays(race,-2);
   if(shake>t&&!seen.has(shake))out.push({id:uid(),date:shake,label:'Shakeout \u00b7 2 mi',miles:2,kind:'easy'});
@@ -2553,6 +2567,7 @@ function openModal(opts){
     let inp;
     if(fl.type==='textarea')inp='<textarea class="inp" data-k="'+fl.key+'" placeholder="'+esc(fl.placeholder||'')+'">'+esc(fl.value||'')+'</textarea>';
     else if(fl.type==='select')inp='<select class="inp" data-k="'+fl.key+'">'+fl.options.map(o=>'<option value="'+esc(o.v)+'"'+(String(fl.value)===String(o.v)?' selected':'')+'>'+esc(o.l)+'</option>').join('')+'</select>';
+    else if(fl.type==='days')inp='<div class="daypick" data-k="'+fl.key+'">'+['Su','Mo','Tu','We','Th','Fr','Sa'].map((d,i)=>'<button type="button" class="daychip'+((fl.value||[]).indexOf(i)>=0?' on':'')+'" data-act="daychip" data-d="'+i+'">'+d+'</button>').join('')+'</div>';
     else inp='<input class="inp" data-k="'+fl.key+'" type="'+(fl.type||'text')+'" value="'+esc(fl.value==null?'':fl.value)+'" placeholder="'+esc(fl.placeholder||'')+'"'+(fl.type==='number'?' inputmode="'+(fl.dec?'decimal':'numeric')+'" step="'+(fl.dec?'any':'1')+'"':'')+'>';
     return '<div class="field'+(fl.half?' half':'')+'"><label>'+esc(fl.label)+'</label>'+inp+'</div>';
   });
@@ -2567,7 +2582,7 @@ function openModal(opts){
   const first=$('#modal-root .inp');if(first)setTimeout(()=>first.focus(),40);
 }
 function closeModal(){$('#modal-root').innerHTML='';modalSave=null;}
-function collectModal(){const vals={};document.querySelectorAll('#modal-root [data-k]').forEach(e=>vals[e.dataset.k]=e.value.trim());return vals;}
+function collectModal(){const vals={};document.querySelectorAll('#modal-root [data-k]').forEach(e=>{if(e.classList.contains('daypick'))vals[e.dataset.k]=[...e.querySelectorAll('.daychip.on')].map(c=>+c.dataset.d);else vals[e.dataset.k]=e.value.trim();});return vals;}
 
 /* ---------- TOAST / UNDO ---------- */
 let toastT,lastUndo=null;
@@ -2726,15 +2741,16 @@ const actions={
   'plan-build'(){openModal({title:'Build training plan',ok:'Preview',fields:[
     {key:'date',label:'Race date',type:'date',value:''},
     {key:'dist',label:'Distance',type:'select',value:'marathon',half:true,options:[{v:'marathon',l:'Marathon \u00b7 26.2'},{v:'half',l:'Half marathon \u00b7 13.1'}]},
-    {key:'weeks',label:'Plan length (16\u201320 rec. for a marathon)',type:'select',value:'16',half:true,options:[{v:'8',l:'8 weeks'},{v:'12',l:'12 weeks'},{v:'16',l:'16 weeks'},{v:'20',l:'20 weeks'}]},
-    {key:'rpw',label:'Runs per week (4\u20135 recommended)',type:'select',value:'4',half:true,options:[{v:'3',l:'3 days'},{v:'4',l:'4 days'},{v:'5',l:'5 days'},{v:'6',l:'6 days'}]},
-    {key:'longDow',label:'Long run day',type:'select',value:'6',half:true,options:[{v:'0',l:'Sunday'},{v:'1',l:'Monday'},{v:'2',l:'Tuesday'},{v:'3',l:'Wednesday'},{v:'4',l:'Thursday'},{v:'5',l:'Friday'},{v:'6',l:'Saturday'}]}
+    {key:'weeks',label:'Plan length (16\u201320 rec.)',type:'select',value:'16',half:true,options:[{v:'8',l:'8 weeks'},{v:'12',l:'12 weeks'},{v:'16',l:'16 weeks'},{v:'20',l:'20 weeks'}]},
+    {key:'days',label:'Run days \u2014 pick the days you\u2019ll run',type:'days',value:[2,4,6]},
+    {key:'longDow',label:'Long run day',type:'select',value:'6',options:[{v:'0',l:'Sunday'},{v:'1',l:'Monday'},{v:'2',l:'Tuesday'},{v:'3',l:'Wednesday'},{v:'4',l:'Thursday'},{v:'5',l:'Friday'},{v:'6',l:'Saturday'}]}
   ],onSave(v){
     if(!v.date||v.date<=todayStr()){toast('Pick a race date in the future');return;}
+    if(!v.days||!v.days.length){toast('Pick at least one run day');return;}
     const avail=Math.floor(diffDays(v.date,todayStr())/7);
     if(avail<4){toast('That race is too soon to build a plan around');return;}
     const weeks=Math.min(+v.weeks||16,avail);
-    ui.planPreview=genPlan(v.date,weeks,v.dist,v.rpw,v.longDow);
+    ui.planPreview=genPlan(v.date,weeks,v.dist,v.days,v.longDow);
     ui.view='running';render();window.scrollTo(0,0);toast('Preview ready \u2014 edit it, then add to calendar');
   }});},
   'plan-confirm'(){if(!ui.planPreview||!ui.planPreview.length)return;S().runPlan=ui.planPreview;ui.planPreview=null;ui.calMonth=firstOfMonth(todayStr());commit();toast('Plan added \u2014 check your calendar');},
@@ -3208,6 +3224,7 @@ const actions={
   /* modal + toast */
   'modal-ok'(){const fn=modalSave;const vals=collectModal();closeModal();if(fn)fn(vals);},
   'modal-cancel'(){closeModal();},
+  'daychip'(el){el.classList.toggle('on');},
   'modal-bg'(el,e){if(e.target.classList.contains('overlay'))closeModal();},
   'undo'(){const fn=lastUndo;lastUndo=null;const el=$('#toast');if(el)el.classList.remove('show');if(fn)fn();}
 };
