@@ -286,6 +286,12 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .set-inputs input{width:88px;padding:7px 9px}
 .wex{padding:13px 2px;border-bottom:1px solid var(--line)}
 .wex:last-child{border-bottom:none}
+/* Exercise alternatives ("or" options) */
+.alt-row .alt-or{flex:none;font-size:10px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em;width:22px;text-align:center}
+.alt-pick{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px}
+.alt-opt{border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:20px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.12s}
+.alt-opt:hover{border-color:var(--plum)}
+.alt-opt.on{background:var(--plum-bg);border-color:var(--plum);color:var(--plum)}
 
 /* run chart */
 .wkchart{display:flex;gap:7px;align-items:flex-end;height:96px;padding-top:6px}
@@ -1928,7 +1934,11 @@ function vWorkouts(){
   const head='<div class="sect-head"><div class="lead"><h2>Workouts</h2><p>Build workout templates, then log sessions against them \u2014 weight \u00d7 reps for every set. Schedule sessions and they land on your calendar.</p></div>'+
     '<div class="actions"><button class="btn primary" data-act="wk-add">'+svg(I.plus)+'New workout</button></div></div>';
   const cards=ws.length?ws.map(w=>{
-    const exItems=(w.exercises||[]).map(ex=>'<div class="row" data-drag-item data-id="'+ex.id+'" style="padding:6px 2px"><span class="grip" data-grip aria-label="drag to reorder">'+svg(I.grip)+'</span><div class="txt"><div class="t" style="font-size:13.5px">'+esc(ex.name)+'</div></div><button class="icon-btn" data-act="wex-edit" data-wk="'+w.id+'" data-id="'+ex.id+'" aria-label="rename">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="wex-del" data-wk="'+w.id+'" data-id="'+ex.id+'">'+svg(I.trash)+'</button></div>').join('');
+    const exItems=(w.exercises||[]).map(ex=>{
+      const mainRow='<div class="row" style="padding:6px 2px"><span class="grip" data-grip aria-label="drag to reorder">'+svg(I.grip)+'</span><div class="txt"><div class="t" style="font-size:13.5px">'+esc(ex.name)+'</div></div><button class="icon-btn" data-act="wex-alt-add" data-wk="'+w.id+'" data-id="'+ex.id+'" aria-label="add an or alternative" title="Add an ‘or’ alternative">'+svg(I.plus)+'</button><button class="icon-btn" data-act="wex-edit" data-wk="'+w.id+'" data-id="'+ex.id+'" aria-label="rename">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="wex-del" data-wk="'+w.id+'" data-id="'+ex.id+'">'+svg(I.trash)+'</button></div>';
+      const altRows=(ex.alts||[]).map(a=>'<div class="row alt-row" style="padding:3px 2px 3px 24px"><span class="alt-or">or</span><div class="txt"><div class="t" style="font-size:13px;color:var(--ink-soft)">'+esc(a.name)+'</div></div><button class="icon-btn" data-act="wex-alt-edit" data-wk="'+w.id+'" data-id="'+ex.id+'" data-alt="'+a.id+'" aria-label="rename">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="wex-alt-del" data-wk="'+w.id+'" data-id="'+ex.id+'" data-alt="'+a.id+'">'+svg(I.trash)+'</button></div>').join('');
+      return '<div data-drag-item data-id="'+ex.id+'" class="wex-slot">'+mainRow+altRows+'</div>';
+    }).join('');
     const exs=exItems?'<div data-draglist data-wkid="'+w.id+'">'+exItems+'</div>':'';
     return '<div class="card" style="margin-bottom:16px">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'+
@@ -1958,14 +1968,19 @@ function vSession(){
   const s=ui.session,w=S().workouts.find(x=>x.id===s.workoutId);
   if(!w){ui.session=null;return vWorkouts();}
   const blocks=(w.exercises||[]).map(ex=>{
-    const cur=s.sets.filter(x=>x.exId===ex.id);
-    const last=lastExSets(ex.id);
+    // Each exercise may offer "or" alternatives \u2014 pick which one you're doing.
+    const opts=[{id:ex.id,name:ex.name}].concat(ex.alts||[]);
+    const picked=(s.pick&&s.pick[ex.id]&&opts.some(o=>o.id===s.pick[ex.id]))?s.pick[ex.id]:ex.id;
+    const po=opts.find(o=>o.id===picked)||opts[0];
+    const picker=opts.length>1?'<div class="alt-pick">'+opts.map(o=>'<button class="alt-opt'+(o.id===picked?' on':'')+'" data-act="set-pick" data-slot="'+ex.id+'" data-opt="'+o.id+'">'+esc(o.name)+'</button>').join('')+'</div>':'';
+    const cur=s.sets.filter(x=>x.exId===picked);
+    const last=lastExSets(picked);
     const pf=cur.length?cur[cur.length-1]:(last?last.sets[last.sets.length-1]:null);
     const chips=cur.map(st=>'<span class="setchip">'+st.w+' \u00d7 '+st.r+'<button data-act="set-rm" data-i="'+s.sets.indexOf(st)+'" aria-label="remove set">\u2715</button></span>').join('');
     const lastHtml=last?'<div class="faint" style="font-size:11.5px;margin-top:3px">Last time ('+fmtD(last.date)+'): '+last.sets.map(x=>x.w+'\u00d7'+x.r).join(', ')+'</div>':'';
-    return '<div class="wex"><div style="font-weight:600;font-size:14px">'+esc(ex.name)+'</div>'+lastHtml+
+    return '<div class="wex"><div style="font-weight:600;font-size:14px">'+esc(opts.length>1?po.name:ex.name)+'</div>'+picker+lastHtml+
       (chips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">'+chips+'</div>':'')+
-      '<div class="set-inputs"><input class="inp" type="number" inputmode="decimal" placeholder="Weight" id="we-'+ex.id+'" value="'+(pf?pf.w:'')+'"><span class="faint">\u00d7</span><input class="inp" type="number" inputmode="numeric" placeholder="Reps" id="wr-'+ex.id+'" value="'+(pf?pf.r:'')+'" data-enter="set-add" data-ex="'+ex.id+'"><button class="btn sm" data-act="set-add" data-ex="'+ex.id+'">'+svg(I.plus)+'Set</button></div></div>';
+      '<div class="set-inputs"><input class="inp" type="number" inputmode="decimal" placeholder="Weight" id="we-'+picked+'" value="'+(pf?pf.w:'')+'"><span class="faint">\u00d7</span><input class="inp" type="number" inputmode="numeric" placeholder="Reps" id="wr-'+picked+'" value="'+(pf?pf.r:'')+'" data-enter="set-add" data-ex="'+picked+'"><button class="btn sm" data-act="set-add" data-ex="'+picked+'">'+svg(I.plus)+'Set</button></div></div>';
   }).join('');
   const total=s.sets.length,vol=s.sets.reduce((a,x)=>a+x.w*x.r,0);
   return '<div class="sect-head"><div class="lead"><h2>Log session</h2><p>'+esc(w.name)+' \u2014 add each set as you go. Nothing is stored until you hit Finish &amp; save.</p></div>'+
@@ -2786,6 +2801,9 @@ const actions={
   'wex-add'(el){const w=S().workouts.find(x=>x.id===el.dataset.wk);if(!w)return;const inp=document.querySelector('[data-enter="wex-add"][data-wk="'+el.dataset.wk+'"]');const t=inp?inp.value.trim():'';if(!t)return;(w.exercises=w.exercises||[]).push({id:uid(),name:t});commit();},
   'wex-del'(el){const w=S().workouts.find(x=>x.id===el.dataset.wk);if(!w)return;w.exercises=(w.exercises||[]).filter(x=>x.id!==el.dataset.id);commit();},
   'wex-edit'(el){const w=S().workouts.find(x=>x.id===el.dataset.wk);if(!w)return;const ex=(w.exercises||[]).find(x=>x.id===el.dataset.id);if(!ex)return;openModal({title:'Rename exercise',ok:'Save',fields:[{key:'name',label:'Exercise',value:ex.name}],onSave(v){if(!v.name)return;ex.name=v.name;commit();}});},
+  'wex-alt-add'(el){const w=S().workouts.find(x=>x.id===el.dataset.wk);if(!w)return;const ex=(w.exercises||[]).find(x=>x.id===el.dataset.id);if(!ex)return;openModal({title:'Add alternative',ok:'Add',fields:[{key:'name',label:'Or, instead of “'+ex.name+'”…',placeholder:'e.g. Incline Bench'}],onSave(v){if(!v.name)return;(ex.alts=ex.alts||[]).push({id:uid(),name:v.name});commit();}});},
+  'wex-alt-edit'(el){const w=S().workouts.find(x=>x.id===el.dataset.wk);if(!w)return;const ex=(w.exercises||[]).find(x=>x.id===el.dataset.id);if(!ex)return;const a=(ex.alts||[]).find(x=>x.id===el.dataset.alt);if(!a)return;openModal({title:'Rename alternative',ok:'Save',fields:[{key:'name',label:'Alternative',value:a.name}],onSave(v){if(!v.name)return;a.name=v.name;commit();}});},
+  'wex-alt-del'(el){const w=S().workouts.find(x=>x.id===el.dataset.wk);if(!w)return;const ex=(w.exercises||[]).find(x=>x.id===el.dataset.id);if(!ex)return;ex.alts=(ex.alts||[]).filter(x=>x.id!==el.dataset.alt);commit();},
   'wk-sched'(el){const w=S().workouts.find(x=>x.id===el.dataset.id);if(!w)return;openModal({title:'Schedule \u201c'+w.name+'\u201d',ok:'Schedule',fields:[
     {key:'date',label:'First date',type:'date',value:todayStr()},
     {key:'repeat',label:'Repeat',type:'select',value:'1',options:[{v:'1',l:'Just once'},{v:'4',l:'Weekly \u00d7 4'},{v:'8',l:'Weekly \u00d7 8'},{v:'12',l:'Weekly \u00d7 12'}]}
@@ -2793,13 +2811,14 @@ const actions={
   'wsched-del'(el){const i=S().workoutSched.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().workoutSched.splice(i,1);commit();toast('Removed from schedule',()=>{S().workoutSched.splice(Math.min(i,S().workoutSched.length),0,rm);commit();});},
   'wk-start'(el){ui.session={workoutId:el.dataset.id,date:todayStr(),sets:[]};ui.view='workouts';render();window.scrollTo(0,0);},
   'set-add'(el){if(!ui.session)return;const ex=el.dataset.ex;const we=document.getElementById('we-'+ex),wr=document.getElementById('wr-'+ex);const w=we&&we.value!==''?+we.value:NaN,r=wr&&wr.value!==''?+wr.value:NaN;if(isNaN(w)||w<0||isNaN(r)||r<=0){toast('Enter a weight and reps first');return;}ui.session.sets.push({exId:ex,w,r});render();},
+  'set-pick'(el){if(!ui.session)return;ui.session.pick=ui.session.pick||{};ui.session.pick[el.dataset.slot]=el.dataset.opt;render();},
   'set-rm'(el){if(!ui.session)return;ui.session.sets.splice(+el.dataset.i,1);render();},
   'session-cancel'(){ui.session=null;render();},
   'session-save'(){
     const s=ui.session;if(!s)return;
     if(!s.sets.length){toast('Add at least one set first');return;}
     const w=S().workouts.find(x=>x.id===s.workoutId);
-    const exName=id=>{const e=w&&(w.exercises||[]).find(x=>x.id===id);return e?e.name:'Exercise';};
+    const exName=id=>{if(!w)return'Exercise';for(const e of (w.exercises||[])){if(e.id===id)return e.name;for(const a of (e.alts||[]))if(a.id===id)return a.name;}return'Exercise';};
     S().workoutLog.push({id:uid(),date:s.date||todayStr(),workoutId:s.workoutId,workoutName:w?w.name:'Workout',sets:s.sets.map(x=>({exId:x.exId,exName:exName(x.exId),w:x.w,r:x.r}))});
     ui.session=null;commit();toast('Session saved');
   },
