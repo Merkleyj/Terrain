@@ -292,6 +292,9 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .alt-opt{border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:20px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.12s}
 .alt-opt:hover{border-color:var(--plum)}
 .alt-opt.on{background:var(--plum-bg);border-color:var(--plum);color:var(--plum)}
+/* Vision & Identity per-area blocks */
+.vblock-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.vblock-badge{font-family:var(--serif);font-weight:600;font-size:15px;border-radius:20px;padding:5px 14px;letter-spacing:-.01em}
 
 /* run chart */
 .wkchart{display:flex;gap:7px;align-items:flex-end;height:96px;padding-top:6px}
@@ -639,7 +642,7 @@ function defaults(){
     assets:[],debts:[],nwSnaps:[],budgetCats:[],spend:[],savings:[],bills:[],
     debtExtra:0,debtMode:'avalanche',
     wins:[],sleepLog:[],skills:[],inbox:[],big3:{},reviews:{},areas:[],goalHist:{},focusLog:[],savedFoods:[],savedMeals:[],meetings:[],
-    vision:{statement:'',anti:'',theme:'',identities:[],values:[]},
+    vision:{blocks:[{id:'v-general',area:'',statement:'',anti:'',theme:'',identities:[],values:[]}]},
     settings:{name:'',tabs:{}},
     reading:[],
     journal:[]
@@ -700,8 +703,30 @@ const Store={
     if(typeof s.debtExtra!=='number')s.debtExtra=0;
     if(s.debtMode!=='snowball')s.debtMode='avalanche';
     if(!s.vision||typeof s.vision!=='object')s.vision={};
-    ['statement','anti','theme'].forEach(k=>{if(typeof s.vision[k]!=='string')s.vision[k]='';});
-    ['identities','values'].forEach(k=>{if(!Array.isArray(s.vision[k]))s.vision[k]=[];});
+    // Vision is now organized as one block per life area. Migrate the old
+    // single-vision shape (statement/anti/theme/identities/values) into blocks,
+    // preserving any per-area identity tags as their own area blocks.
+    if(!Array.isArray(s.vision.blocks)){
+      const old=s.vision;
+      const idents=Array.isArray(old.identities)?old.identities:[];
+      const areas=[...new Set(idents.map(x=>x.area||''))];
+      if(areas.indexOf('')<0)areas.unshift('');
+      s.vision.blocks=areas.map(ar=>({
+        id:uid(),area:ar,
+        statement:ar===''?(typeof old.statement==='string'?old.statement:''):'',
+        anti:ar===''?(typeof old.anti==='string'?old.anti:''):'',
+        theme:ar===''?(typeof old.theme==='string'?old.theme:''):'',
+        identities:idents.filter(x=>(x.area||'')===ar).map(x=>({id:x.id||uid(),text:x.text||''})),
+        values:ar===''&&Array.isArray(old.values)?old.values.map(x=>({id:x.id||uid(),text:x.text||''})):[]
+      }));
+      ['statement','anti','theme','identities','values'].forEach(k=>{delete s.vision[k];});
+    }
+    if(!s.vision.blocks.length)s.vision.blocks=[{id:uid(),area:'',statement:'',anti:'',theme:'',identities:[],values:[]}];
+    s.vision.blocks.forEach(b=>{
+      if(!b.id)b.id=uid();if(typeof b.area!=='string')b.area='';
+      ['statement','anti','theme'].forEach(k=>{if(typeof b[k]!=='string')b[k]='';});
+      ['identities','values'].forEach(k=>{if(!Array.isArray(b[k]))b[k]=[];});
+    });
     s.bills.forEach(b=>{if(!Array.isArray(b.paidLog))b.paidLog=[];});
     if(!s.habitLog)s.habitLog={};
     if(!s.macroLog)s.macroLog={};
@@ -1122,7 +1147,7 @@ function vOverview(){
   if(enabled('skills'))hstats.push(hstat((Math.round(S().skills.reduce((a,s)=>a+(s.log||[]).filter(x=>weekSun(x.date)===wkH).reduce((b,x)=>b+(+x.min||0),0),0)/6)/10)+'h','Practice wk'));
   if(enabled('bucket'))hstats.push(hstat(bucketDone+'<span style="font-size:14px;opacity:.7">/'+S().bucket.length+'</span>','Bucket list'));
   const uname=S().settings&&S().settings.name?', '+esc(S().settings.name):'';
-  const qpool=QUOTES.concat(enabled('vision')&&S().vision?(S().vision.identities||[]).map(x=>x.text):[]);
+  const qpool=QUOTES.concat(enabled('vision')&&S().vision&&Array.isArray(S().vision.blocks)?S().vision.blocks.flatMap(b=>b.identities||[]).map(x=>x.text):[]);
   const heroHtml='<div class="hero"><svg class="topo" viewBox="0 0 400 200" preserveAspectRatio="none">'+
     [0,1,2,3,4,5].map(i=>'<path d="M-20 '+(30+i*30)+' C 80 '+(10+i*30)+', 160 '+(60+i*30)+', 240 '+(30+i*30)+' S 380 '+(50+i*30)+', 440 '+(25+i*30)+'" fill="none" stroke="#fff" stroke-width="1.4"/>').join('')+
     '</svg>'+
@@ -2322,29 +2347,38 @@ function vSleep(){
 }
 
 /* ---------- VIEW: VISION & IDENTITY ---------- */
+function visBlock(id){return (S().vision.blocks||[]).find(b=>b.id===id)||null;}
 function vVision(){
   const v=S().vision;
-  const head='<div class="sect-head"><div class="lead"><h2>Vision &amp; Identity</h2><p>The layer above goals \u2014 who you\u2019re becoming and why. Identity statements rotate through your dashboard greeting so you see them daily.</p></div></div>';
+  const head='<div class="sect-head"><div class="lead"><h2>Vision &amp; Identity</h2><p>The layer above goals \u2014 who you\u2019re becoming and why. Build one for your life overall, or a separate block for each life area. Identity statements rotate through your dashboard greeting so you see them daily.</p></div>'+
+    '<div class="actions"><button class="btn primary" data-act="vblock-add">'+svg(I.plus)+'Add life area</button></div></div>';
   const areaList=S().areas.filter(a=>!a.hidden);
-  const areaName=id=>{const a=S().areas.find(x=>x.id===id);return a?a.name:'General';};
-  const byArea={};(v.identities||[]).forEach(x=>{const k=x.area||'';(byArea[k]=byArea[k]||[]).push(x);});
-  const identRow=x=>'<div class="row" style="padding:7px 2px"><div style="width:8px;height:8px;border-radius:50%;background:var(--sage);flex:none"></div><div class="txt"><div class="t" style="font-size:13.5px">'+esc(x.text)+'</div></div><button class="icon-btn del" data-act="ident-del" data-id="'+x.id+'">'+svg(I.trash)+'</button></div>';
-  const identKeys=Object.keys(byArea);
-  const idents=identKeys.length?identKeys.map(k=>'<div class="eyebrow" style="margin:12px 0 2px">'+esc(k?areaName(k):'General')+'</div>'+byArea[k].map(identRow).join('')).join(''):'';
-  const vals=(v.values||[]).map(x=>'<span class="setchip">'+esc(x.text)+'<button data-act="val-del" data-id="'+x.id+'" aria-label="remove">\u2715</button></span>').join(' ');
-  const left='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Vision</h3><span class="spacer faint" style="font-size:11.5px">saves as you type away</span></div>'+
-    '<textarea class="inp" data-change="vis-field" data-key="statement" placeholder="Write the life you\u2019re building \u2014 5\u201310 years out. Where do you live? What does a Tuesday look like? What have you built?" style="min-height:150px">'+esc(v.statement)+'</textarea></div>'+
-    '<div class="card"><div class="card-h"><h3>Anti-vision</h3></div><p class="faint" style="font-size:12.5px;margin:0 0 8px">Just as clarifying: the life you\u2019re steering away from.</p>'+
-    '<textarea class="inp" data-change="vis-field" data-key="anti" placeholder="What does drifting look like? Name it so you recognize it." style="min-height:96px">'+esc(v.anti)+'</textarea></div>';
-  const right='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Theme for the year</h3></div>'+
-    '<input class="inp" data-change="vis-field" data-key="theme" value="'+esc(v.theme)+'" placeholder="e.g. The year of building"></div>'+
-    '<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Identity statements</h3></div>'+
-    (idents||'<p class="faint" style="font-size:13px;margin:2px 0 8px">\u201cI am someone who\u2026\u201d \u2014 acts follow identity.</p>')+
-    '<div class="addbar" style="margin-top:10px"><input class="inp" id="vi-ident" placeholder="I am someone who\u2026" data-enter="ident-add"><select class="inp" id="vi-ident-area" style="flex:none;min-width:118px"><option value="">General</option>'+areaList.map(a=>'<option value="'+a.id+'">'+esc(a.name)+'</option>').join('')+'</select><button class="btn sm" data-act="ident-add">'+svg(I.plus)+'</button></div></div>'+
-    '<div class="card"><div class="card-h"><h3>Core values</h3></div>'+
-    (vals?'<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">'+vals+'</div>':'<p class="faint" style="font-size:13px;margin:2px 0 10px">A handful of words you can make decisions against.</p>')+
-    '<div class="addbar"><input class="inp" id="vi-val" placeholder="e.g. Discipline" data-enter="val-add" style="max-width:220px"><button class="btn sm" data-act="val-add">'+svg(I.plus)+'</button></div></div>';
-  return head+'<div class="grid g2">'+ '<div>'+left+'</div>'+'<div>'+right+'</div>'+'</div>';
+  const areaName=id=>{const a=S().areas.find(x=>x.id===id);return a?a.name:'Overall';};
+  const areaOptions=sel=>'<option value=""'+(sel===''?' selected':'')+'>Overall</option>'+areaList.map(a=>'<option value="'+a.id+'"'+(sel===a.id?' selected':'')+'>'+esc(a.name)+'</option>').join('');
+  const block=b=>{
+    const idents=(b.identities||[]).map(x=>'<div class="row" style="padding:7px 2px"><div style="width:8px;height:8px;border-radius:50%;background:var(--sage);flex:none"></div><div class="txt"><div class="t" style="font-size:13.5px">'+esc(x.text)+'</div></div><button class="icon-btn del" data-act="ident-del" data-b="'+b.id+'" data-id="'+x.id+'">'+svg(I.trash)+'</button></div>').join('');
+    const vals=(b.values||[]).map(x=>'<span class="setchip">'+esc(x.text)+'<button data-act="val-del" data-b="'+b.id+'" data-id="'+x.id+'" aria-label="remove">\u2715</button></span>').join(' ');
+    const left='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Vision</h3><span class="spacer faint" style="font-size:11.5px">saves as you type away</span></div>'+
+      '<textarea class="inp" data-change="vis-field" data-b="'+b.id+'" data-key="statement" placeholder="Write the life you\u2019re building \u2014 5\u201310 years out. Where do you live? What does a Tuesday look like? What have you built?" style="min-height:150px">'+esc(b.statement)+'</textarea></div>'+
+      '<div class="card"><div class="card-h"><h3>Anti-vision</h3></div><p class="faint" style="font-size:12.5px;margin:0 0 8px">Just as clarifying: the life you\u2019re steering away from.</p>'+
+      '<textarea class="inp" data-change="vis-field" data-b="'+b.id+'" data-key="anti" placeholder="What does drifting look like? Name it so you recognize it." style="min-height:96px">'+esc(b.anti)+'</textarea></div>';
+    const right='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Theme for the year</h3></div>'+
+      '<input class="inp" data-change="vis-field" data-b="'+b.id+'" data-key="theme" value="'+esc(b.theme)+'" placeholder="e.g. The year of building"></div>'+
+      '<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Identity statements</h3></div>'+
+      (idents||'<p class="faint" style="font-size:13px;margin:2px 0 8px">\u201cI am someone who\u2026\u201d \u2014 acts follow identity.</p>')+
+      '<div class="addbar" style="margin-top:10px"><input class="inp" id="vi-ident-'+b.id+'" placeholder="I am someone who\u2026" data-enter="ident-add" data-b="'+b.id+'"><button class="btn sm" data-act="ident-add" data-b="'+b.id+'">'+svg(I.plus)+'</button></div></div>'+
+      '<div class="card"><div class="card-h"><h3>Core values</h3></div>'+
+      (vals?'<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">'+vals+'</div>':'<p class="faint" style="font-size:13px;margin:2px 0 10px">A handful of words you can make decisions against.</p>')+
+      '<div class="addbar"><input class="inp" id="vi-val-'+b.id+'" placeholder="e.g. Discipline" data-enter="val-add" data-b="'+b.id+'" style="max-width:220px"><button class="btn sm" data-act="val-add" data-b="'+b.id+'">'+svg(I.plus)+'</button></div></div>';
+    return '<div class="card vblock" style="margin-bottom:20px;padding:18px 18px 6px">'+
+      '<div class="vblock-h"><span class="vblock-badge" style="background:var(--'+(AREACOL[areaName(b.area).toLowerCase()]||'sage')+'-bg);color:var(--'+(AREACOL[areaName(b.area).toLowerCase()]||'sage')+')">'+esc(areaName(b.area))+'</span>'+
+        '<select class="inp" data-change="vblock-area" data-b="'+b.id+'" style="flex:none;width:auto;min-width:130px;font-size:13px;padding:7px 30px 7px 11px">'+areaOptions(b.area)+'</select>'+
+        '<span class="spacer" style="margin-left:auto"></span>'+
+        (v.blocks.length>1?'<button class="icon-btn del" data-act="vblock-del" data-b="'+b.id+'" title="Remove this block">'+svg(I.trash)+'</button>':'')+
+      '</div>'+
+      '<div class="grid g2"><div>'+left+'</div><div>'+right+'</div></div></div>';
+  };
+  return head+(v.blocks||[]).map(block).join('');
 }
 
 /* ---------- VIEW: SKILLS ---------- */
@@ -2984,10 +3018,12 @@ const actions={
   'cal-open-sleep'(){closeModal();ui.view='sleep';render();window.scrollTo(0,0);},
 
   /* vision & identity */
-  'ident-add'(){const t=getInput('vi-ident');if(!t)return;S().vision.identities=S().vision.identities||[];S().vision.identities.push({id:uid(),text:t,area:getInput('vi-ident-area')||''});commit();},
-  'ident-del'(el){S().vision.identities=S().vision.identities.filter(x=>x.id!==el.dataset.id);commit();},
-  'val-add'(){const t=getInput('vi-val');if(!t)return;S().vision.values.push({id:uid(),text:t});commit();},
-  'val-del'(el){S().vision.values=S().vision.values.filter(x=>x.id!==el.dataset.id);commit();},
+  'ident-add'(el){const b=visBlock(el&&el.dataset.b);if(!b)return;const t=getInput('vi-ident-'+b.id);if(!t)return;(b.identities=b.identities||[]).push({id:uid(),text:t});commit();},
+  'ident-del'(el){const b=visBlock(el.dataset.b);if(!b)return;b.identities=(b.identities||[]).filter(x=>x.id!==el.dataset.id);commit();},
+  'val-add'(el){const b=visBlock(el&&el.dataset.b);if(!b)return;const t=getInput('vi-val-'+b.id);if(!t)return;(b.values=b.values||[]).push({id:uid(),text:t});commit();},
+  'val-del'(el){const b=visBlock(el.dataset.b);if(!b)return;b.values=(b.values||[]).filter(x=>x.id!==el.dataset.id);commit();},
+  'vblock-add'(){const used=new Set((S().vision.blocks||[]).map(b=>b.area));const avail=[{v:'',l:'Overall'}].concat(S().areas.filter(a=>!a.hidden).map(a=>({v:a.id,l:a.name}))).filter(o=>!used.has(o.v));openModal({title:'Add Vision & Identity block',ok:'Add',fields:[{key:'area',label:'Life area',type:'select',value:avail.length?avail[0].v:'',options:avail.length?avail:[{v:'',l:'Overall'}]}],onSave(v){S().vision.blocks.push({id:uid(),area:v.area||'',statement:'',anti:'',theme:'',identities:[],values:[]});commit();}});},
+  'vblock-del'(el){const i=S().vision.blocks.findIndex(b=>b.id===el.dataset.b);if(i<0||S().vision.blocks.length<=1)return;const[rm]=S().vision.blocks.splice(i,1);commit();toast('Block removed',()=>{S().vision.blocks.splice(Math.min(i,S().vision.blocks.length),0,rm);commit();});},
 
   /* skills */
   'skill-add'(){openModal({title:'New skill',ok:'Create',fields:[
@@ -3355,7 +3391,8 @@ document.addEventListener('change',e=>{
   if(act==='session-date'&&ui.session){ui.session.date=t.value||todayStr();return;}
   if(act==='set-name'){S().settings.name=t.value.trim();Store.save();render();return;}
   if(act==='debt-extra'){S().debtExtra=Math.max(0,+t.value||0);Store.save();render();return;}
-  if(act==='vis-field'&&t.dataset.key){S().vision[t.dataset.key]=t.value.trim();Store.save();return;}
+  if(act==='vis-field'&&t.dataset.key){const b=visBlock(t.dataset.b);if(b){b[t.dataset.key]=t.value.trim();Store.save();}return;}
+  if(act==='vblock-area'){const b=visBlock(t.dataset.b);if(b){b.area=t.value;commit();}return;}
   if(act==='big3-next'){big3Of(todayStr()).next=t.value.trim();Store.save();return;}
   if(act==='rev-field'&&t.dataset.key&&t.dataset.week){const r=S().reviews;if(!r[t.dataset.week])r[t.dataset.week]={};r[t.dataset.week][t.dataset.key]=t.value;Store.save();return;}
   if(act==='nextf'&&t.dataset.k){ui.nextF[t.dataset.k]=t.value;render();return;}
