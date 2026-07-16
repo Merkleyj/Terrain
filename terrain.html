@@ -2884,7 +2884,7 @@ const actions={
     {key:'date',label:'Race date',type:'date',value:''},
     {key:'dist',label:'Distance',type:'select',value:'marathon',half:true,options:[{v:'marathon',l:'Marathon \u00b7 26.2'},{v:'half',l:'Half marathon \u00b7 13.1'}]},
     {key:'weeks',label:'Plan length (16\u201320 rec.)',type:'select',value:'16',half:true,options:[{v:'8',l:'8 weeks'},{v:'12',l:'12 weeks'},{v:'16',l:'16 weeks'},{v:'20',l:'20 weeks'}]},
-    {key:'days',label:'Run days \u2014 pick the days you\u2019ll run',type:'days',value:[2,4,6]},
+    {key:'days',label:'Run days \u2014 pick the days you\u2019ll run (4\u20135 rec.)',type:'days',value:[2,4,6]},
     {key:'longDow',label:'Long run day',type:'select',value:'6',options:[{v:'0',l:'Sunday'},{v:'1',l:'Monday'},{v:'2',l:'Tuesday'},{v:'3',l:'Wednesday'},{v:'4',l:'Thursday'},{v:'5',l:'Friday'},{v:'6',l:'Saturday'}]}
   ],onSave(v){
     if(!v.date||v.date<=todayStr()){toast('Pick a race date in the future');return;}
