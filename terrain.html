@@ -334,6 +334,8 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .rte-body ol,.rte-content ol{margin:5px 0;padding-left:22px;list-style:decimal}
 .rte-body li,.rte-content li{margin:3px 0}
 .note-clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.rv-exp svg{transition:transform .16s}
+.rv-exp.open svg{transform:rotate(90deg)}
 
 /* drag reorder */
 .grip{width:22px;height:26px;display:grid;place-items:center;flex:none;color:var(--ink-faint);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:6px}
@@ -370,6 +372,7 @@ details.expl p{font-size:11.5px;color:var(--ink-soft);margin:8px 0 0;line-height
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(44,42,36,.44);backdrop-filter:blur(3px);display:grid;place-items:center;z-index:100;padding:20px;animation:fade .18s}
 .modal{background:var(--surface);border-radius:16px;box-shadow:0 24px 60px -20px rgba(0,0,0,.4);width:100%;max-width:460px;max-height:90vh;overflow:auto;border:1px solid var(--line)}
+.modal.modal-wide{max-width:720px}
 .modal-h{padding:20px 22px 6px}
 .modal-h h3{font-family:var(--serif);font-weight:600;font-size:19px;margin:0;letter-spacing:-.01em}
 .modal-b{padding:12px 22px}
@@ -1933,11 +1936,11 @@ function openReadView(id,focus){
       return '<div class="note-entry note-editing"><input class="inp" id="rnote-e-title" value="'+esc(n.title||'')+'" placeholder="Note heading (optional)" style="margin-bottom:8px">'+richEditor('rnote-e-text',noteBody(n),'Edit your note…')+'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn sm ghost" data-act="rnote-edit-cancel" data-r="'+r.id+'">Cancel</button><button class="btn sm primary" data-act="rnote-edit-save" data-r="'+r.id+'" data-id="'+n.id+'">Save</button></div></div>';
     }
     const open=ui.rvOpen.has(n.id);
-    return '<div class="note-entry"><div class="nh">'+(n.title?'<span class="note-title">'+esc(n.title)+'</span>':'<span class="note-title" style="font-weight:400;color:var(--ink-soft)">Note</span>')+'<span class="mono faint" style="font-size:11px;margin-left:auto">'+fmtDL(n.date)+'</span><button class="icon-btn" data-act="rnote-edit" data-r="'+r.id+'" data-id="'+n.id+'" aria-label="edit">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="rnote-del" data-r="'+r.id+'" data-id="'+n.id+'">'+svg(I.trash)+'</button></div>'+
-      '<div class="nt rte-content'+(open?'':' note-clamp')+'" data-act="rnote-toggle" data-r="'+r.id+'" data-id="'+n.id+'" title="'+(open?'Click to collapse':'Click to expand')+'">'+noteBody(n)+'</div></div>';
+    return '<div class="note-entry"><div class="nh">'+(n.title?'<span class="note-title">'+esc(n.title)+'</span>':'<span class="note-title" style="font-weight:400;color:var(--ink-soft)">Note</span>')+'<span class="mono faint" style="font-size:11px;margin-left:auto">'+fmtDL(n.date)+'</span><button class="icon-btn rv-exp'+(open?' open':'')+'" data-act="rnote-toggle" data-r="'+r.id+'" data-id="'+n.id+'" aria-label="'+(open?'collapse':'expand')+'" title="'+(open?'Collapse':'Read full note')+'">'+svg(I.chevR)+'</button><button class="icon-btn" data-act="rnote-edit" data-r="'+r.id+'" data-id="'+n.id+'" aria-label="edit" title="Edit note">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="rnote-del" data-r="'+r.id+'" data-id="'+n.id+'" title="Delete note">'+svg(I.trash)+'</button></div>'+
+      '<div class="nt rte-content'+(open?'':' note-clamp')+'" data-act="rnote-toggle" data-r="'+r.id+'" data-id="'+n.id+'" title="'+(open?'Click to collapse':'Click to read full note')+'">'+noteBody(n)+'</div></div>';
   };
   const notesHtml=notes.length?'<div class="eyebrow" style="margin:4px 0 2px">Saved notes</div>'+notes.map(noteCard).join(''):'<p class="faint" style="font-size:13px;margin:2px 0 6px">No notes yet — capture a thought above.</p>';
-  $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal">'+
+  $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal modal-wide">'+
     '<div class="modal-h"><h3>'+esc(r.title)+'</h3><div class="faint" style="font-size:12.5px;margin-top:2px">'+esc(r.author||'')+(r.author?' · ':'')+rTypeLabel(r.type)+'</div></div>'+
     '<div class="modal-b">'+
       '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:16px">'+pill(st[0],'var(--'+st[1]+')','var(--'+st[1]+'-bg)')+(r.status==='done'&&r.rating?stars(r.rating):'')+(r.link?linkChip(r.link):'')+'</div>'+
@@ -2660,7 +2663,7 @@ const VIEWS={overview:vOverview,calendar:vCalendar,todo:vTodo,goals:vGoals,proje
 /* ---------- RICH TEXT ---------- */
 // A small formatting-capable editor (bold / italic / underline) used for long
 // notes and reflections. Stores lightweight HTML; sanitized to a safe whitelist.
-const RTE_COLORS=['#2C2A24','#B0492B','#4B7F52','#3B6EA5','#8A6A72','#C08A2B'];
+const RTE_COLORS=['#2C2A24','#B0492B','#4B7F52','#3B6EA5'];
 function richEditor(key,html,ph){
   const btn=(cmd,val,css,label,title)=>'<button type="button" data-cmd="'+cmd+'"'+(val!=null?' data-val="'+esc(val)+'"':'')+(css?' data-css="1"':'')+' title="'+esc(title)+'" aria-label="'+esc(title)+'">'+label+'</button>';
   const swatches=RTE_COLORS.map(c=>'<button type="button" class="rte-sw" data-cmd="foreColor" data-val="'+c+'" data-css="1" title="Text colour" aria-label="Text colour" style="background:'+c+'"></button>').join('');
