@@ -3741,8 +3741,17 @@ const Sync={
 <!-- PWA: register the service worker for offline use -->
 <script>
 if('serviceWorker' in navigator){
+  // When a new version takes over, reload once so the app never runs stale code.
+  var __reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(__reloading)return;__reloading=true;window.location.reload();
+  });
   window.addEventListener('load',function(){
-    navigator.serviceWorker.register('sw.js').catch(function(err){
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      // Check for a newer version on load and whenever the app regains focus.
+      try{reg.update();}catch(e){}
+      document.addEventListener('visibilitychange',function(){if(!document.hidden){try{reg.update();}catch(e){}}});
+    }).catch(function(err){
       console.warn('Service worker registration failed:',err);
     });
   });
