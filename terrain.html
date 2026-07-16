@@ -2757,7 +2757,7 @@ function openModal(opts){
     if(flds[i].half&&flds[i+1]&&flds[i+1].half){body+='<div class="field-row">'+fields[i]+fields[i+1]+'</div>';i++;}
     else body+=fields[i];
   }
-  $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal"><div class="modal-h"><h3>'+esc(opts.title)+'</h3></div><div class="modal-b">'+body+'</div><div class="modal-f"><button class="btn ghost" data-act="modal-cancel">Cancel</button><button class="btn primary" data-act="modal-ok">'+esc(opts.ok||'Save')+'</button></div></div></div>';
+  $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal'+(opts.wide?' modal-wide':'')+'"><div class="modal-h"><h3>'+esc(opts.title)+'</h3></div><div class="modal-b">'+body+'</div><div class="modal-f"><button class="btn ghost" data-act="modal-cancel">Cancel</button><button class="btn primary" data-act="modal-ok">'+esc(opts.ok||'Save')+'</button></div></div></div>';
   stripAutofill($('#modal-root'));
   applyModalConds();
   const first=$('#modal-root .inp');if(first)setTimeout(()=>first.focus(),40);
@@ -3402,7 +3402,15 @@ const actions={
   ],onSave(v){if(!v.title)return;Object.assign(r,{type:v.type,status:v.status,title:v.title,author:v.author,link:normUrl(v.link),rating:+v.rating||0});commit();}});},
   'read-view'(el){ui.rvEdit=null;ui.rvOpen=new Set();openReadView(el.dataset.id,true);},
   'rnote-add'(el){const r=S().reading.find(x=>x.id===el.dataset.id);if(!r)return;const title=($('#rnote-title')?$('#rnote-title').value.trim():'');const html=rteGet('rnote-text');if(rteEmpty(html)&&!title){toast('Write a note first');return;}(r.noteLog=r.noteLog||[]).push({id:uid(),date:todayStr(),title:title,html:html});commit();openReadView(r.id,true);},
-  'rnote-toggle'(el){if(ui.rvOpen.has(el.dataset.id))ui.rvOpen.delete(el.dataset.id);else ui.rvOpen.add(el.dataset.id);openReadView(el.dataset.r,false);},
+  'rnote-toggle'(el){
+    // Toggle in place — rebuilding the whole modal here reset its scroll to the
+    // top, which felt like a glitch when expanding a note lower down.
+    const id=el.dataset.id;if(ui.rvOpen.has(id))ui.rvOpen.delete(id);else ui.rvOpen.add(id);
+    const ent=el.closest('.note-entry');if(!ent)return;
+    const open=ui.rvOpen.has(id),body=ent.querySelector('.nt'),chev=ent.querySelector('.rv-exp');
+    if(body){body.classList.toggle('note-clamp',!open);body.title=open?'Click to collapse':'Click to read full note';}
+    if(chev){chev.classList.toggle('open',open);chev.title=open?'Collapse':'Read full note';}
+  },
   'rnote-edit'(el){ui.rvEdit=el.dataset.id;openReadView(el.dataset.r,'edit');},
   'rnote-edit-cancel'(el){ui.rvEdit=null;openReadView(el.dataset.r,false);},
   'rnote-edit-save'(el){const r=S().reading.find(x=>x.id===el.dataset.r);if(!r)return;const n=(r.noteLog||[]).find(x=>x.id===el.dataset.id);if(!n)return;const title=($('#rnote-e-title')?$('#rnote-e-title').value.trim():'');const html=rteGet('rnote-e-text');if(rteEmpty(html)&&!title){toast('Note is empty');return;}n.title=title;n.html=html;delete n.text;ui.rvEdit=null;commit();openReadView(r.id,false);},
@@ -3416,9 +3424,9 @@ const actions={
     if(type==='daily')fields.push({key:'mood',label:'Mood',type:'select',value:'',half:true,options:[{v:'',l:'—'}].concat(MOODS.map((m,i)=>({v:m,l:m})))});
     fields.push({key:'area',label:'Life area (optional)',type:'select',value:'',options:areaOpts()});
     fields.push({key:'text',label:'Reflection',type:'rich',placeholder:prompts[type]});
-    openModal({title:'New entry',ok:'Save',fields,onSave(v){if(rteEmpty(v.text))return;S().journal.push({id:uid(),type:v.type,date:v.date||todayStr(),mood:v.mood||'',area:v.area||'',html:v.text,text:''});commit();}});},
+    openModal({title:'New entry',ok:'Save',wide:true,fields,onSave(v){if(rteEmpty(v.text))return;S().journal.push({id:uid(),type:v.type,date:v.date||todayStr(),mood:v.mood||'',area:v.area||'',html:v.text,text:''});commit();}});},
   'jrnl-edit'(el){const j=S().journal.find(x=>x.id===el.dataset.id);if(!j)return;const fields=[{key:'type',label:'Type',type:'select',value:j.type,options:[{v:'daily',l:'Daily'},{v:'weekly',l:'Weekly'},{v:'monthly',l:'Monthly'}]},{key:'date',label:'Date',type:'date',value:j.date,half:true},{key:'mood',label:'Mood',type:'select',value:j.mood||'',half:true,options:[{v:'',l:'—'}].concat(MOODS.map(m=>({v:m,l:m})))},{key:'text',label:'Reflection',type:'rich',value:(j.html!=null?j.html:plainToHtml(j.text))}];
-    openModal({title:'Edit entry',fields,onSave(v){if(rteEmpty(v.text))return;Object.assign(j,{type:v.type,date:v.date,mood:v.mood,html:v.text,text:''});commit();}});},
+    openModal({title:'Edit entry',wide:true,fields,onSave(v){if(rteEmpty(v.text))return;Object.assign(j,{type:v.type,date:v.date,mood:v.mood,html:v.text,text:''});commit();}});},
   'jrnl-del'(el){const i=S().journal.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().journal.splice(i,1);commit();toast('Entry deleted',()=>{S().journal.splice(i,0,rm);commit();});},
   'jrnl-filter'(el){ui.jrnlFilter=el.dataset.id;render();},
 
