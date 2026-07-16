@@ -934,14 +934,15 @@ function qaHtml(){
       :'<p class="faint" style="font-size:13px;padding:10px">No skills yet. <button class="btn sm" data-act="qa-goto" data-id="skills">Go to Skills</button></p>';
     return qaSheetWrap('Start a skill timer',true,inner);
   }
-  const inner=[
-    qaRow('qa-run','route','Log a run'),
-    qaRow('qa-food','macros','Log food'),
-    qaRow('qa-mode','dumbbell','Log a workout',' data-id="workouts"'),
-    qaRow('qa-sleep','moon','Log sleep'),
-    qaRow('qa-inbox','inboxI','Jot to Inbox'),
-    qaRow('qa-mode','bulb','Start a skill timer',' data-id="skills"')
-  ].join('');
+  // Only show actions whose tab is turned on in Settings.
+  const rows=[];
+  if(enabled('running'))rows.push(qaRow('qa-run','route','Log a run'));
+  if(enabled('macros'))rows.push(qaRow('qa-food','macros','Log food'));
+  if(enabled('workouts'))rows.push(qaRow('qa-mode','dumbbell','Log a workout',' data-id="workouts"'));
+  if(enabled('sleep'))rows.push(qaRow('qa-sleep','moon','Log sleep'));
+  if(enabled('inbox'))rows.push(qaRow('qa-inbox','inboxI','Jot to Inbox'));
+  if(enabled('skills'))rows.push(qaRow('qa-mode','bulb','Start a skill timer',' data-id="skills"'));
+  const inner=rows.length?rows.join(''):'<p class="faint" style="font-size:13px;padding:12px 10px">No quick actions — turn on tabs like Sleep or Running in Settings.</p>';
   return qaSheetWrap('Quick log',false,inner);
 }
 function qaRerender(){const el=document.getElementById('qa-sheet');if(el)el.innerHTML=qaHtml();}
