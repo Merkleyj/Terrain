@@ -5,7 +5,7 @@
    - Other GETs (fonts, favicons, etc.): cache-first, then network, and cache
      the response for next time so the app looks right offline after first run.
    Bump CACHE when you change terrain.html so clients pick up the new version. */
-const CACHE = 'terrain-v28';
+const CACHE = 'terrain-v29';
 const APP_SHELL = 'terrain.html';
 const ASSETS = [
   APP_SHELL,
@@ -18,8 +18,12 @@ const ASSETS = [
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    // add() each asset individually so one missing file can't fail the whole install
-    await Promise.allSettled(ASSETS.map(a => cache.add(a)));
+    // Fetch each asset bypassing the HTTP cache so a freshly-installed version
+    // never precaches a stale page. add()/default fetch can return an old copy
+    // from the browser cache (a common cause of PWAs not updating on iOS).
+    await Promise.allSettled(ASSETS.map(async a => {
+      try { const res = await fetch(a, { cache: 'reload' }); if (res && (res.ok || res.type === 'opaque')) await cache.put(a, res); } catch (e) {}
+    }));
     self.skipWaiting();
   })());
 });
@@ -47,7 +51,8 @@ self.addEventListener('fetch', event => {
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const fresh = await fetch(req);
+        // Bypass the HTTP cache so we always get the newest page when online.
+        const fresh = await fetch(req, { cache: 'reload' });
         const cache = await caches.open(CACHE);
         cache.put(APP_SHELL, fresh.clone());
         return fresh;
