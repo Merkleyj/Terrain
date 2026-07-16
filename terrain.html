@@ -3504,6 +3504,7 @@ const Sync={
   login(){this._auth('signInWithEmailAndPassword');},
   signup(){this._auth('createUserWithEmailAndPassword');},
   _auth(method){
+    this._ensurePw();
     const em=(this._email.value||'').trim(),pw=this._pw.value||'';
     if(!em||!pw){this.err('Enter your email and password.');return;}
     this.err('');this._busy(true);
@@ -3574,8 +3575,21 @@ const Sync={
     ov.querySelector('#sync-skip').addEventListener('click',function(){self.skip();});
     this._pw.addEventListener('keydown',function(e){if(e.key==='Enter')self.login();});
   },
+  // Recreate the password field if it was removed (see hideLogin). It only ever
+  // lives in the DOM while the sign-in screen is actually on screen.
+  _ensurePw(){
+    if(this._pw&&this._pw.isConnected)return;
+    const pw=document.createElement('input');
+    pw.id='sync-pw';pw.type='password';pw.setAttribute('autocomplete','current-password');pw.placeholder='Password';
+    const self=this;
+    pw.addEventListener('keydown',function(e){if(e.key==='Enter')self.login();});
+    if(this._email&&this._email.parentNode)this._email.insertAdjacentElement('afterend',pw);
+    else if(this._form)this._form.insertBefore(pw,this._errEl||null);
+    this._pw=pw;
+  },
   showLogin(loading){
     if(!this._overlay)return;
+    this._ensurePw();
     this._overlay.classList.add('show');
     if(this._loading)this._loading.style.display=loading?'block':'none';
     if(this._form)this._form.style.display=loading?'none':'block';
@@ -3583,11 +3597,13 @@ const Sync={
   },
   hideLogin(){
     if(this._overlay)this._overlay.classList.remove('show');
-    // Clear the login fields once we're past the sign-in screen. Leaving a
-    // password value on the page makes the browser pair it with the next text
-    // field you type into (e.g. a new habit) and pop a bogus "Save password?".
     if(this._email)this._email.value='';
-    if(this._pw)this._pw.value='';
+    // Remove the password field from the DOM entirely once we're past sign-in.
+    // A cleared-but-present password field still gets re-autofilled by the
+    // browser and then paired with the next text field you type into (a habit,
+    // logged minutes, etc.), triggering a bogus "Save password?" prompt. With
+    // no password input on the page at all, that can't happen.
+    if(this._pw){this._pw.value='';this._pw.remove();this._pw=null;}
   },
   err(m){if(this._errEl){this._errEl.textContent=m||'';this._errEl.style.display=m?'block':'none';}},
   _busy(b){if(this._form)this._form.querySelectorAll('button,input').forEach(function(x){x.disabled=b;});},
