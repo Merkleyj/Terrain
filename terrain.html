@@ -2038,7 +2038,7 @@ function vWorkouts(){
     return '<button class="day-ev" data-act="wlog-view" data-id="'+l.id+'"><span class="cal-dot" style="background:var(--plum)"></span><span class="day-ev-txt">'+esc(l.workoutName)+' <span class="faint">\u00b7 '+fmtD(l.date)+'</span></span><span class="mono faint" style="font-size:11.5px">'+(l.sets||[]).length+' sets \u00b7 '+vol.toLocaleString()+'</span></button>';
   }).join(''):emptyBox('No sessions logged yet.','dumbbell');
   // Training volume (weight \u00d7 reps summed per week) \u2014 the progress-over-time view.
-  let volCard='';
+  let volCard='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Training volume</h3></div><p class="faint" style="font-size:13px;margin:0">Log your first session and this chart starts tracking your weekly volume (weight \u00d7 reps) \u2014 watch it climb week over week.</p></div>';
   if(S().workoutLog.length){
     const wkNow=weekSun(t);let maxV=0;const vw=[];
     for(let i=7;i>=0;i--){
