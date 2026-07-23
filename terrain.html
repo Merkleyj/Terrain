@@ -1499,7 +1499,11 @@ function projNext(p){
   return t?{text:t.text,task:t,proj:p}:null;
 }
 function goalNextA(g){
-  // Automatic: the first open step is the next action; fall back to linked tasks.
+  // CONVENTION: a goal's "next action" is ALWAYS its first uncompleted step
+  // (falling back to its first open linked task). Goal cards deliberately do
+  // NOT render a next-action row — the top open step in the list already is
+  // the next action. Anything that surfaces next actions (Overview cards,
+  // the Next actions tab via nextPool, TV mode) must derive it from here.
   const s=(g.steps||[]).find(x=>!x.done);
   if(s)return{text:s.text};
   const pool=openTasksOf((t,p)=>t.goalId===g.id||(p&&p.goalId===g.id));
@@ -1752,7 +1756,6 @@ function vGoals(){
     const breakdown=calc.parts.length?'<div class="faint" style="font-size:11.5px;margin-top:4px">'+calc.parts.map(x=>x.k+' '+x.pct+'% ('+x.det+', w'+x.w+')').join(' \u00b7 ')+'</div>':'';
     const projChips=calc.projects.map(pr=>'<span class="metachip">'+esc(pr.name)+' \u00b7 '+projPct(pr)+'%</span>').join(' ');
     const openT=calc.tasks.filter(x=>!x.done).slice(0,3).map(x=>'<div class="row" style="padding:6px 2px"><button class="chk" data-act="todo-toggle" data-id="'+x.id+'">'+svg(I.check)+'</button><div class="txt"><div class="t" style="font-size:13px">'+esc(x.text)+'</div></div>'+focusBtn('todo',x.id)+'</div>').join('');
-    const nx=goalNextA(g);
     const gGrip=sort==='custom'?'<span class="grip" data-grip aria-label="drag to reorder goals" style="margin-top:4px">'+svg(I.grip)+'</span>':'';
     return '<div class="card" data-drag-item data-id="'+g.id+'" style="margin-bottom:16px">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'+gGrip+
@@ -1766,8 +1769,6 @@ function vGoals(){
       '<div style="display:flex;align-items:center;gap:12px;margin:14px 0 2px"><div style="flex:1">'+bar(p,col)+'</div><span class="mono" style="font-size:13px;font-weight:600;color:'+col+'">'+p+'%</span></div>'+
       breakdown+
       (projChips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">'+projChips+'</div>':'')+
-      '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"><span class="eyebrow" style="display:block;margin-bottom:5px">Next action</span>'+
-        (nx?'<div style="font-size:13.5px">'+esc(nx.text)+'</div>':'<div class="faint" style="font-size:12.5px">Nothing queued \u2014 add a step or link a project.</div>')+'</div>'+
       (openT?'<div style="margin-top:8px"><span class="eyebrow" style="display:block;margin-bottom:2px">Open linked tasks</span>'+openT+'</div>':'')+
       '<div style="margin-top:8px">'+steps+'</div>'+stepCtl+
       '<div class="addbar" style="margin-top:10px"><input class="inp" placeholder="Add a step\u2026" data-enter="step-add" data-goal="'+g.id+'"><button class="btn sm" data-act="step-add" data-goal="'+g.id+'">'+svg(I.plus)+'Step</button></div>'+
