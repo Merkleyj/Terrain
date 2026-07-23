@@ -11,9 +11,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <!-- Firebase (cloud sync across devices) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -3614,42 +3612,41 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&$('#modal-root').innerHTML)closeModal();
 });
 
-/* ---------- cloud sync (Firebase) ---------- */
-const FIREBASE_CONFIG={
-  apiKey:"AIzaSyAVbLTXrIeshzo3DUv2Avi4I_4fJLgZLMk",
-  authDomain:"terrain-785c7.firebaseapp.com",
-  projectId:"terrain-785c7",
-  storageBucket:"terrain-785c7.firebasestorage.app",
-  messagingSenderId:"327057741589",
-  appId:"1:327057741589:web:d6a2762c20d2b058937b1c"
-};
+/* ---------- cloud sync (Supabase) ---------- */
+// One row per user in public.terrain_state (RLS: each user sees only their row).
+// The publishable key below is safe to ship publicly — access is enforced by RLS.
+const SUPABASE_URL='https://fxizizakecmhzfainshn.supabase.co';
+const SUPABASE_KEY='sb_publishable_o5gw22bIdHOHRll-EjQXbg_xLoOfPY4';
 const Sync={
-  active:false, db:null, ref:null, uid:null, unsub:null, lastUpdatedAt:0, _t:null,
+  active:false, sb:null, uid:null, email:'', channel:null, lastUpdatedAt:0, _t:null, status:'',
   init(){
-    if(typeof firebase==='undefined'){console.warn('Firebase unavailable — running on this device only');return;}
-    try{firebase.initializeApp(FIREBASE_CONFIG);}catch(e){}
-    try{this.db=firebase.firestore();}catch(e){this.db=null;}
-    if(!this.db)return;
-    try{this.db.enablePersistence({synchronizeTabs:true}).catch(function(){});}catch(e){}
+    if(typeof supabase==='undefined'){console.warn('Supabase unavailable — running on this device only');return;}
+    try{this.sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){this.sb=null;}
+    if(!this.sb)return;
     this.buildUI();
     this.showLogin(true);
     const self=this;
-    firebase.auth().onAuthStateChanged(function(user){
-      if(user){self.hideLogin();self.setStatus('syncing');self.onUser(user);}
-      else{self.active=false;if(self.unsub){self.unsub();self.unsub=null;}self.setStatus('');self.showLogin(false);}
+    this.sb.auth.onAuthStateChange(function(event,session){
+      const user=session&&session.user;
+      if(user){
+        if(self.active&&self.uid===user.id)return; // token refresh — already synced
+        self.hideLogin();self.setStatus('syncing');self.onUser(user);
+      }else{
+        self.active=false;self.uid=null;self.detach();self.setStatus('');self.showLogin(false);
+      }
     });
   },
+  detach(){if(this.channel){try{this.sb.removeChannel(this.channel);}catch(e){}this.channel=null;}},
   async onUser(user){
-    this.uid=user.uid;
+    this.uid=user.id;
     this.email=user.email||'';
-    this.ref=this.db.collection('users').doc(user.uid);
     let remote=null;
-    try{const snap=await this.ref.get();if(snap.exists)remote=snap.data();}catch(e){}
+    try{const r=await this.sb.from('terrain_state').select('data,updated_at').eq('user_id',this.uid).maybeSingle();remote=r.data;}catch(e){}
     const local=S();
     const localTs=+(local.updatedAt||0);
     if(remote&&remote.data){
       let rstate=null;try{rstate=JSON.parse(remote.data);}catch(e){}
-      const remoteTs=+(remote.updatedAt||0);
+      const remoteTs=+(remote.updated_at||0);
       if(rstate&&remoteTs>=localTs){
         try{await window.storage.set(Store.key+':bak:presync',JSON.stringify(local));}catch(e){}
         this.lastUpdatedAt=remoteTs;
@@ -3670,57 +3667,64 @@ const Sync={
     try{render();}catch(e){}
   },
   async pushNow(state){
-    if(!this.ref)return;
+    if(!this.sb||!this.uid)return;
     const ts=+(state.updatedAt||Date.now());
     this.lastUpdatedAt=ts;
-    try{await this.ref.set({data:JSON.stringify(state),updatedAt:ts});}catch(e){}
+    try{await this.sb.from('terrain_state').upsert({user_id:this.uid,data:JSON.stringify(state),updated_at:ts});}catch(e){}
   },
   push(state,json){
-    if(!this.active||!this.ref)return;
+    if(!this.active||!this.sb||!this.uid)return;
     const self=this;
     clearTimeout(this._t);
     this._t=setTimeout(function(){
       const ts=+(state.updatedAt||Date.now());
       self.lastUpdatedAt=ts;
-      self.ref.set({data:json||JSON.stringify(state),updatedAt:ts}).catch(function(){});
+      self.sb.from('terrain_state').upsert({user_id:self.uid,data:json||JSON.stringify(state),updated_at:ts}).then(function(){},function(){});
     },500);
   },
   attachListener(){
-    if(this.unsub){this.unsub();this.unsub=null;}
+    this.detach();
     const self=this;
-    this.unsub=this.ref.onSnapshot(function(snap){
-      if(!snap.exists)return;
-      if(snap.metadata&&snap.metadata.hasPendingWrites)return;
-      const d=snap.data();const remoteTs=+(d.updatedAt||0);
-      if(remoteTs>(self.lastUpdatedAt||0)){
-        let rstate=null;try{rstate=JSON.parse(d.data);}catch(e){}
-        if(rstate){self.lastUpdatedAt=remoteTs;self.applyRemote(rstate);}
-      }
-    },function(){});
+    this.channel=this.sb.channel('terrain-state-'+this.uid)
+      .on('postgres_changes',{event:'*',schema:'public',table:'terrain_state',filter:'user_id=eq.'+this.uid},function(payload){
+        const d=payload.new;
+        if(!d||!d.data)return;
+        const remoteTs=+(d.updated_at||0);
+        if(remoteTs>(self.lastUpdatedAt||0)){
+          let rstate=null;try{rstate=JSON.parse(d.data);}catch(e){}
+          if(rstate){self.lastUpdatedAt=remoteTs;self.applyRemote(rstate);}
+        }
+      })
+      .subscribe();
   },
-  login(){this._auth('signInWithEmailAndPassword');},
-  signup(){this._auth('createUserWithEmailAndPassword');},
+  login(){this._auth('signInWithPassword');},
+  signup(){this._auth('signUp');},
   _auth(method){
     this._ensurePw();
     const em=(this._email.value||'').trim(),pw=this._pw.value||'';
     if(!em||!pw){this.err('Enter your email and password.');return;}
     this.err('');this._busy(true);
     const self=this;
-    firebase.auth()[method](em,pw).catch(function(e){self._busy(false);self.err(self._msg(e));});
+    this.sb.auth[method]({email:em,password:pw}).then(function(res){
+      if(res.error){self._busy(false);self.err(self._msg(res.error));return;}
+      // If email confirmation is ever re-enabled, signUp returns no session yet.
+      if(method==='signUp'&&!(res.data&&res.data.session)){self._busy(false);self.err('Check your email to confirm your account, then log in.');}
+    }).catch(function(e){self._busy(false);self.err(self._msg(e));});
   },
   signOut(){
     if(!confirm('Sign out? Your data stays saved in the cloud and on this device.'))return;
-    try{firebase.auth().signOut();}catch(e){}
+    try{this.sb.auth.signOut();}catch(e){}
   },
   skip(){this.hideLogin();this.setStatus('');},
   _msg(e){
-    const c=(e&&e.code)||'';
-    if(c==='auth/invalid-email')return 'That email doesn’t look right.';
-    if(c==='auth/user-not-found'||c==='auth/invalid-credential'||c==='auth/wrong-password')return 'Wrong email or password. First time here? Tap “Create account.”';
-    if(c==='auth/email-already-in-use')return 'That email already has an account — tap “Log in” instead.';
-    if(c==='auth/weak-password')return 'Password should be at least 6 characters.';
-    if(c==='auth/network-request-failed')return 'No internet connection. Connect and try again.';
-    return (e&&e.message)||'Something went wrong. Please try again.';
+    const m=(e&&e.message)||'';
+    if(/invalid login credentials/i.test(m))return 'Wrong email or password. First time here? Tap “Create account.”';
+    if(/already registered|already been registered/i.test(m))return 'That email already has an account — tap “Log in” instead.';
+    if(/password should be at least|password.*too short/i.test(m))return 'Password should be at least 6 characters.';
+    if(/valid email|invalid format|invalid email/i.test(m))return 'That email doesn’t look right.';
+    if(/failed to fetch|network/i.test(m))return 'No internet connection. Connect and try again.';
+    if(/rate limit|too many/i.test(m))return 'Too many attempts — wait a minute and try again.';
+    return m||'Something went wrong. Please try again.';
   },
   buildUI(){
     const css=document.createElement('style');
