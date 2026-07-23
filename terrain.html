@@ -2037,8 +2037,24 @@ function vWorkouts(){
     const vol=(l.sets||[]).reduce((a,x)=>a+x.w*x.r,0);
     return '<button class="day-ev" data-act="wlog-view" data-id="'+l.id+'"><span class="cal-dot" style="background:var(--plum)"></span><span class="day-ev-txt">'+esc(l.workoutName)+' <span class="faint">\u00b7 '+fmtD(l.date)+'</span></span><span class="mono faint" style="font-size:11.5px">'+(l.sets||[]).length+' sets \u00b7 '+vol.toLocaleString()+'</span></button>';
   }).join(''):emptyBox('No sessions logged yet.','dumbbell');
+  // Training volume (weight \u00d7 reps summed per week) \u2014 the progress-over-time view.
+  let volCard='';
+  if(S().workoutLog.length){
+    const wkNow=weekSun(t);let maxV=0;const vw=[];
+    for(let i=7;i>=0;i--){
+      const wsd=addDays(wkNow,-7*i);
+      const wlogs=S().workoutLog.filter(l=>weekSun(l.date)===wsd);
+      const vol=wlogs.reduce((a,l)=>a+(l.sets||[]).reduce((x,st)=>x+st.w*st.r,0),0);
+      vw.push({ws:wsd,vol,n:wlogs.length});maxV=Math.max(maxV,vol);
+    }
+    const cw=vw[7],pw=vw[6];
+    const trend=(pw.vol>0&&cw.vol>0&&pw.vol!==cw.vol)?'<span class="tag" style="color:'+(cw.vol>pw.vol?'var(--sage)':'var(--clay)')+'">'+(cw.vol>pw.vol?'\u25b2 +':'\u25bc ')+Math.abs(Math.round((cw.vol-pw.vol)/pw.vol*100))+'% wk</span>':'';
+    const vBars=vw.map(x=>'<div class="wkcol" title="Week of '+fmtD(x.ws)+' \u00b7 '+x.n+' session'+(x.n===1?'':'s')+' \u00b7 '+x.vol.toLocaleString()+' volume"><div class="wkbar" style="height:'+(maxV?Math.max(3,x.vol/maxV*100):3)+'%;background:var(--plum)'+(x.ws===wkNow?'':';opacity:.45')+'"></div></div>').join('');
+    const vLabels=vw.map(x=>{const d=parseD(x.ws);return '<span>'+(d.getMonth()+1)+'/'+d.getDate()+'</span>';}).join('');
+    volCard='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Training volume</h3>'+trend+'<span class="spacer mono faint" style="font-size:12px">8 weeks</span></div><div class="wkchart">'+vBars+'</div><div class="wklabels">'+vLabels+'</div><p class="faint" style="font-size:11.5px;margin:8px 0 0">Volume = weight \u00d7 reps across every set you logged that week.</p></div>';
+  }
   return head+'<div class="grid g2 split"><div>'+cards+'</div>'+
-    '<div><div class="card"><div class="card-h"><h3>Scheduled</h3></div>'+schedHtml+'</div>'+
+    '<div>'+volCard+'<div class="card"><div class="card-h"><h3>Scheduled</h3></div>'+schedHtml+'</div>'+
     '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Recent sessions</h3></div>'+histHtml+'</div></div></div>';
 }
 function vSession(){
