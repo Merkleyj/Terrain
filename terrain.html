@@ -291,6 +291,7 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .alt-name{border:none;background:none;padding:0;font-family:inherit;font-size:13px;color:var(--ink-soft);cursor:pointer}
 .alt-name:hover{text-decoration:underline;color:var(--ink)}
 .alt-row .alt-or{flex:none;font-size:10px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em;width:22px;text-align:center}
+.wex-slot .row{border-bottom:none} /* no divider between an exercise and its superset sub-rows */
 .alt-pick{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px}
 .alt-opt{border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:20px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.12s}
 .alt-opt:hover{border-color:var(--plum)}
@@ -2012,7 +2013,7 @@ function vWorkouts(){
       const altInline=(ex.alts||[]).map(a=>' <span class="or-inline">or</span> <button class="alt-name" data-act="wex-alt-edit" data-wk="'+w.id+'" data-id="'+ex.id+'" data-alt="'+a.id+'" title="Edit alternative">'+esc(a.name)+'</button>').join('');
       const mainRow='<div class="row" style="padding:6px 2px"><span class="grip" data-grip aria-label="drag to reorder">'+svg(I.grip)+'</span><div class="txt"><div class="t" style="font-size:13.5px">'+esc(ex.name)+altInline+'</div></div><button class="icon-btn" data-act="wex-sub-add" data-wk="'+w.id+'" data-id="'+ex.id+'" aria-label="add alternative or superset" title="Add an alternative or a superset">'+svg(I.plus)+'</button><button class="icon-btn" data-act="wex-edit" data-wk="'+w.id+'" data-id="'+ex.id+'" aria-label="rename">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="wex-del" data-wk="'+w.id+'" data-id="'+ex.id+'">'+svg(I.trash)+'</button></div>';
       // Supersets show as indented sub-rows (done together with the exercise above).
-      const supRows=(ex.supers||[]).map(sp=>'<div class="row alt-row" style="padding:3px 2px 3px 24px"><span class="alt-or">ss</span><div class="txt"><div class="t" style="font-size:13px;color:var(--ink-soft)">'+esc(sp.name)+'</div></div><button class="icon-btn" data-act="wex-sup-edit" data-wk="'+w.id+'" data-id="'+ex.id+'" data-sup="'+sp.id+'" aria-label="rename">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="wex-sup-del" data-wk="'+w.id+'" data-id="'+ex.id+'" data-sup="'+sp.id+'">'+svg(I.trash)+'</button></div>').join('');
+      const supRows=(ex.supers||[]).map(sp=>'<div class="row alt-row" style="padding:3px 2px 3px 40px"><div class="txt"><div class="t" style="font-size:13px;color:var(--ink-soft)">'+esc(sp.name)+'</div></div><button class="icon-btn" data-act="wex-sup-edit" data-wk="'+w.id+'" data-id="'+ex.id+'" data-sup="'+sp.id+'" aria-label="rename">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="wex-sup-del" data-wk="'+w.id+'" data-id="'+ex.id+'" data-sup="'+sp.id+'">'+svg(I.trash)+'</button></div>').join('');
       return '<div data-drag-item data-id="'+ex.id+'" class="wex-slot">'+mainRow+supRows+'</div>';
     }).join('');
     const exs=exItems?'<div data-draglist data-wkid="'+w.id+'">'+exItems+'</div>':'';
