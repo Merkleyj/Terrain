@@ -336,6 +336,8 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .note-clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
 .rv-exp svg{transition:transform .16s}
 .rv-exp.open svg{transform:rotate(90deg)}
+/* Goal next-action slot lights up while a step is dragged over it */
+.next-slot.drop-hot{background:var(--sage-bg);outline:2px dashed var(--sage);outline-offset:-2px;border-radius:10px}
 
 /* drag reorder */
 .grip{width:22px;height:26px;display:grid;place-items:center;flex:none;color:var(--ink-faint);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:6px}
@@ -568,6 +570,7 @@ const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','De
 const MONL=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function fmtD(s){if(!s)return'';const d=parseD(s);return MON[d.getMonth()]+' '+d.getDate();}
+function fmtDY(s){if(!s)return'';const d=parseD(s);return MON[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();}
 function fmtDL(s){const d=parseD(s);return DOW[d.getDay()]+', '+MONL[d.getMonth()]+' '+d.getDate();}
 function relDue(s){if(!s)return null;const dd=diffDays(s,todayStr());if(dd<0)return{txt:Math.abs(dd)+'d overdue',cls:'over'};if(dd===0)return{txt:'Today',cls:'today'};if(dd===1)return{txt:'Tomorrow',cls:'soon'};if(dd<=7)return{txt:'in '+dd+'d',cls:'soon'};return{txt:fmtD(s),cls:'far'};}
 function normUrl(u){u=(u||'').trim();if(!u)return'';if(!/^https?:\/\//i.test(u))u='https://'+u;return u;}
@@ -794,7 +797,7 @@ function enabled(id){
 
 /* ---------- transient ui state ---------- */
 const ui={view:'overview',moreOpen:false,qaOpen:false,qaMode:'main',tv:false,tvClock:null,habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
-  calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',macroFoodPage:0,rvOpen:new Set(),rvEdit:null,focus:null,fTimer:null,skTimer:null,skTick:null,
+  calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',macroFoodPage:0,rvOpen:new Set(),rvEdit:null,goalOpen:new Set(),goalShowDone:new Set(),focus:null,fTimer:null,skTimer:null,skTick:null,
   todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all'};
 
 /* ---------- computed ---------- */
@@ -1715,10 +1718,14 @@ function vNext(){
 }
 
 function vGoals(){
-  const gs=S().goals,t=todayStr(),wk=weekSun(t);
+  const t=todayStr(),wk=weekSun(t);
   const w=S().settings.goalWeights;
+  const sort=S().settings.goalSort||'custom';
   const head='<div class="sect-head"><div class="lead"><h2>Goals</h2><p>Steps, linked projects and linked tasks all feed each goal\u2019s progress \u2014 weighted '+(+w.steps||0)+'/'+(+w.projects||0)+'/'+(+w.tasks||0)+', editable in Settings.</p></div>'+
-    '<div class="actions"><button class="btn primary" data-act="goal-add">'+svg(I.plus)+'New goal</button></div></div>';
+    '<div class="actions"><select class="inp" data-change="goal-sort" style="width:auto;flex:none" title="Order goals by">'+[['custom','Custom order'],['added','Date added'],['due','Due soonest']].map(o=>'<option value="'+o[0]+'"'+(sort===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select><button class="btn primary" data-act="goal-add">'+svg(I.plus)+'New goal</button></div></div>';
+  let gs=S().goals.slice();
+  if(sort==='added')gs.sort((a,b)=>(a.created||'')<(b.created||'')?-1:(a.created||'')>(b.created||'')?1:0);
+  else if(sort==='due')gs.sort((a,b)=>(a.target||'9999-12-31')<(b.target||'9999-12-31')?-1:1);
   if(!gs.length)return head+'<div class="card">'+emptyBox('No goals yet. Define one and list the steps to reach it.','goals')+'</div>';
   const cards=gs.map(g=>{
     const calc=goalCalc(g),p=calc.overall,rd=relDue(g.target),col='var(--'+goalColorName(g)+')';
@@ -1727,16 +1734,30 @@ function vGoals(){
     const prev=S().goalHist[g.id][addDays(wk,-7)];
     const trend=(prev!=null&&prev!==p)?'<span class="tag" style="color:'+(p>prev?'var(--sage)':'var(--clay)')+'">'+(p>prev?'\u25b2 +':'\u25bc ')+Math.abs(p-prev)+'% wk</span>':'';
     const st=goalStatus(g,p);
-    const steps=(g.steps||[]).map(s=>'<div class="row'+(s.done?' done':'')+'" style="padding:8px 2px"><button class="chk round'+(s.done?' on':'')+'" data-act="step-toggle" data-goal="'+g.id+'" data-id="'+s.id+'">'+svg(I.check)+'</button><div class="txt"><div class="t" style="font-size:13.5px">'+esc(s.text)+'</div></div><button class="icon-btn del" data-act="step-del" data-goal="'+g.id+'" data-id="'+s.id+'">'+svg(I.trash)+'</button></div>').join('');
+    // Steps: completed hidden behind a toggle, list clipped to the next 3 unless expanded.
+    const allSteps=g.steps||[];
+    const doneN=allSteps.filter(s=>s.done).length;
+    const showDone=ui.goalShowDone.has(g.id);
+    const vis=showDone?allSteps:allSteps.filter(s=>!s.done);
+    const expanded=ui.goalOpen.has(g.id);
+    const clip=expanded?vis:vis.slice(0,3);
+    const stepRow=s=>'<div class="row'+(s.done?' done':'')+'" data-drag-item data-id="'+s.id+'" style="padding:8px 2px"><span class="grip" data-grip aria-label="drag to reorder">'+svg(I.grip)+'</span><button class="chk round'+(s.done?' on':'')+'" data-act="step-toggle" data-goal="'+g.id+'" data-id="'+s.id+'">'+svg(I.check)+'</button><div class="txt"><div class="t" style="font-size:13.5px">'+esc(s.text)+'</div></div><button class="icon-btn" data-act="step-edit" data-goal="'+g.id+'" data-id="'+s.id+'" aria-label="edit step">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="step-del" data-goal="'+g.id+'" data-id="'+s.id+'">'+svg(I.trash)+'</button></div>';
+    const steps=clip.length?'<div data-draglist data-goalid="'+g.id+'">'+clip.map(stepRow).join('')+'</div>':'';
+    const moreN=vis.length-clip.length;
+    const ctl=[];
+    if(vis.length>3)ctl.push('<button class="chip" data-act="goal-steps-more" data-id="'+g.id+'">'+(expanded?'Show fewer steps':'Show all steps \u00b7 '+moreN+' more')+'</button>');
+    if(doneN)ctl.push('<button class="chip'+(showDone?' on':'')+'" data-act="goal-steps-done" data-id="'+g.id+'">'+(showDone?'Hide completed':'Show completed \u00b7 '+doneN)+'</button>');
+    const stepCtl=ctl.length?'<div class="chips" style="margin-top:8px">'+ctl.join('')+'</div>':'';
     const breakdown=calc.parts.length?'<div class="faint" style="font-size:11.5px;margin-top:4px">'+calc.parts.map(x=>x.k+' '+x.pct+'% ('+x.det+', w'+x.w+')').join(' \u00b7 ')+'</div>':'';
     const projChips=calc.projects.map(pr=>'<span class="metachip">'+esc(pr.name)+' \u00b7 '+projPct(pr)+'%</span>').join(' ');
     const openT=calc.tasks.filter(x=>!x.done).slice(0,3).map(x=>'<div class="row" style="padding:6px 2px"><button class="chk" data-act="todo-toggle" data-id="'+x.id+'">'+svg(I.check)+'</button><div class="txt"><div class="t" style="font-size:13px">'+esc(x.text)+'</div></div>'+focusBtn('todo',x.id)+'</div>').join('');
     const nx=goalNextA(g);
-    return '<div class="card" style="margin-bottom:16px">'+
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'+
-        '<div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+(g.area&&areaName(g.area)?pill(areaName(g.area),col,'var(--'+goalColorName(g)+'-bg)'):'')+
+    const gGrip=sort==='custom'?'<span class="grip" data-grip aria-label="drag to reorder goals" style="margin-top:4px">'+svg(I.grip)+'</span>':'';
+    return '<div class="card" data-drag-item data-id="'+g.id+'" style="margin-bottom:16px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'+gGrip+
+        '<div style="flex:1"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+(g.area&&areaName(g.area)?pill(areaName(g.area),col,'var(--'+goalColorName(g)+'-bg)'):'')+
           (st?pill(st[0],'var(--'+st[1]+')','var(--'+st[1]+'-bg)'):'')+trend+
-          (rd?'<span class="tag" style="color:'+(rd.cls==='over'?'var(--clay)':'var(--ink-soft)')+'">'+(rd.cls==='over'?'':'Target ')+rd.txt+'</span>':'')+'</div>'+
+          (g.target?'<span class="tag" style="color:'+(rd&&rd.cls==='over'?'var(--clay)':'var(--ink-soft)')+'">'+(rd&&rd.cls==='over'?rd.txt+' \u00b7 ':'Target ')+fmtDY(g.target)+'</span>':'')+'</div>'+
           '<h3 style="font-family:var(--serif);font-size:18px;font-weight:600;margin:8px 0 3px;letter-spacing:-.01em">'+esc(g.title)+'</h3>'+
           (g.why?'<p class="muted" style="font-size:13px;margin:0;max-width:520px">'+esc(g.why)+'</p>':'')+'</div>'+
         '<div style="display:flex;gap:4px;flex:none"><button class="icon-btn" data-act="goal-edit" data-id="'+g.id+'" aria-label="edit">'+svg(I.edit)+'</button><button class="icon-btn" data-act="goal-del" data-id="'+g.id+'" aria-label="delete">'+svg(I.trash)+'</button></div>'+
@@ -1744,14 +1765,14 @@ function vGoals(){
       '<div style="display:flex;align-items:center;gap:12px;margin:14px 0 2px"><div style="flex:1">'+bar(p,col)+'</div><span class="mono" style="font-size:13px;font-weight:600;color:'+col+'">'+p+'%</span></div>'+
       breakdown+
       (projChips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">'+projChips+'</div>':'')+
-      '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"><span class="eyebrow" style="display:block;margin-bottom:5px">Next action</span>'+
+      '<div class="next-slot" data-nextslot="'+g.id+'" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"><span class="eyebrow" style="display:block;margin-bottom:5px">Next action'+(allSteps.some(s=>!s.done)?' <span class="faint" style="text-transform:none;letter-spacing:0;font-weight:400">\u2014 drag a step here to set it</span>':'')+'</span>'+
         (nx?'<div style="font-size:13.5px">'+esc(nx.text)+(nx.manual?' <span class="faint" style="font-size:11px">(manual \u2014 edit goal to change)</span>':'')+'</div>':'<div class="faint" style="font-size:12.5px">Nothing queued \u2014 add a step, link a project, or set one in Edit.</div>')+'</div>'+
       (openT?'<div style="margin-top:8px"><span class="eyebrow" style="display:block;margin-bottom:2px">Open linked tasks</span>'+openT+'</div>':'')+
-      '<div style="margin-top:8px">'+steps+'</div>'+
+      '<div style="margin-top:8px">'+steps+'</div>'+stepCtl+
       '<div class="addbar" style="margin-top:10px"><input class="inp" placeholder="Add a step\u2026" data-enter="step-add" data-goal="'+g.id+'"><button class="btn sm" data-act="step-add" data-goal="'+g.id+'">'+svg(I.plus)+'Step</button></div>'+
     '</div>';
   }).join('');
-  return head+cards;
+  return head+'<div data-draglist data-kind="goals">'+cards+'</div>';
 }
 
 /* ---------- VIEW: PROJECTS ---------- */
@@ -3338,6 +3359,9 @@ const actions={
   'step-add'(el){const g=S().goals.find(x=>x.id===el.dataset.goal);if(!g)return;const inp=document.querySelector('[data-enter="step-add"][data-goal="'+el.dataset.goal+'"]');const t=inp?inp.value.trim():'';if(!t)return;g.steps.push({id:uid(),text:t,done:false});commit();},
   'step-toggle'(el){const g=S().goals.find(x=>x.id===el.dataset.goal);if(!g)return;const s=g.steps.find(x=>x.id===el.dataset.id);if(s){s.done=!s.done;commit();}},
   'step-del'(el){const g=S().goals.find(x=>x.id===el.dataset.goal);if(!g)return;g.steps=g.steps.filter(x=>x.id!==el.dataset.id);commit();},
+  'step-edit'(el){const g=S().goals.find(x=>x.id===el.dataset.goal);if(!g)return;const s=(g.steps||[]).find(x=>x.id===el.dataset.id);if(!s)return;openModal({title:'Edit step',ok:'Save',fields:[{key:'text',label:'Step',value:s.text}],onSave(v){if(!v.text)return;s.text=v.text;commit();}});},
+  'goal-steps-more'(el){const id=el.dataset.id;if(ui.goalOpen.has(id))ui.goalOpen.delete(id);else ui.goalOpen.add(id);render();},
+  'goal-steps-done'(el){const id=el.dataset.id;if(ui.goalShowDone.has(id))ui.goalShowDone.delete(id);else ui.goalShowDone.add(id);render();},
 
   /* projects */
   'proj-hidedone'(){S().settings.hideDone=!S().settings.hideDone;ui.peekDone.clear();commit();},
@@ -3462,6 +3486,7 @@ document.addEventListener('change',e=>{
   if(act==='rev-field'&&t.dataset.key&&t.dataset.week){const r=S().reviews;if(!r[t.dataset.week])r[t.dataset.week]={};r[t.dataset.week][t.dataset.key]=t.value;Store.save();return;}
   if(act==='nextf'&&t.dataset.k){ui.nextF[t.dataset.k]=t.value;render();return;}
   if(act==='macro-search'){ui.macroSearch=t.value;ui.macroFoodPage=0;render();return;}
+  if(act==='goal-sort'){S().settings.goalSort=t.value;commit();return;}
   if(act==='gweight'&&t.dataset.k){S().settings.goalWeights[t.dataset.k]=Math.max(0,+t.value||0);commit();return;}
   if(act==='sweight'&&t.dataset.k){S().settings.scoreWeights[t.dataset.k]=Math.max(0,+t.value||0);commit();return;}
   if(act==='focus-field'&&t.dataset.key){const ref=focusTask();if(ref&&ref.t){ref.t[t.dataset.key]=t.value;Store.save();}return;}
@@ -3489,7 +3514,13 @@ document.addEventListener('pointerdown',e=>{
 document.addEventListener('pointermove',e=>{
   if(!dragCtx)return;
   e.preventDefault();
-  const others=[...dragCtx.list.querySelectorAll('[data-drag-item]:not(.dragging)')];
+  // Dragging a goal step: light up that goal's Next-action slot as a drop target.
+  if(dragCtx.list.dataset.goalid){
+    const slot=document.querySelector('.next-slot[data-nextslot="'+dragCtx.list.dataset.goalid+'"]');
+    if(slot){const r=slot.getBoundingClientRect();const over=e.clientY>=r.top&&e.clientY<=r.bottom&&e.clientX>=r.left&&e.clientX<=r.right;slot.classList.toggle('drop-hot',over);dragCtx.overNext=over;}
+  }
+  // Only consider items belonging to THIS list (goal cards contain nested step lists).
+  const others=[...dragCtx.list.querySelectorAll('[data-drag-item]:not(.dragging)')].filter(el=>el.closest('[data-draglist]')===dragCtx.list);
   let placed=false;
   for(const el of others){
     const r=el.getBoundingClientRect();
@@ -3503,9 +3534,31 @@ document.addEventListener('pointermove',e=>{
 function endDrag(){
   if(!dragCtx)return;
   dragCtx.row.classList.remove('dragging');
-  const ids=[...dragCtx.list.querySelectorAll('[data-drag-item]')].map(el=>el.dataset.id);
+  document.querySelectorAll('.next-slot.drop-hot').forEach(s=>s.classList.remove('drop-hot'));
+  const ids=[...dragCtx.list.querySelectorAll('[data-drag-item]')].filter(el=>el.closest('[data-draglist]')===dragCtx.list).map(el=>el.dataset.id);
   if(dragCtx.list.dataset.kind==='areas'){
     S().areas.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
+    dragCtx=null;commit();return;
+  }
+  if(dragCtx.list.dataset.kind==='goals'){
+    S().goals.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
+    dragCtx=null;commit();return;
+  }
+  if(dragCtx.list.dataset.goalid){
+    const g=S().goals.find(x=>x.id===dragCtx.list.dataset.goalid);
+    if(g){
+      if(dragCtx.overNext){
+        // Dropped onto the Next-action slot: set that step as the manual next action.
+        const s=(g.steps||[]).find(x=>x.id===dragCtx.row.dataset.id);
+        if(s){g.nextAction=s.text;toast('Next action set');}
+      }else{
+        // Permute only the visible steps among their slots; hidden (done/clipped) steps stay put.
+        const idSet=new Set(ids);
+        const ordered=ids.map(id=>(g.steps||[]).find(s=>s.id===id)).filter(Boolean);
+        let vi=0;
+        g.steps=g.steps.map(s=>idSet.has(s.id)?ordered[vi++]:s);
+      }
+    }
     dragCtx=null;commit();return;
   }
   if(dragCtx.list.dataset.wkid){
