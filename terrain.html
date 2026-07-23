@@ -336,8 +336,6 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .note-clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
 .rv-exp svg{transition:transform .16s}
 .rv-exp.open svg{transform:rotate(90deg)}
-/* Goal next-action slot lights up while a step is dragged over it */
-.next-slot.drop-hot{background:var(--sage-bg);outline:2px dashed var(--sage);outline-offset:-2px;border-radius:10px}
 
 /* drag reorder */
 .grip{width:22px;height:26px;display:grid;place-items:center;flex:none;color:var(--ink-faint);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:6px}
@@ -698,6 +696,7 @@ const Store={
     const s=this.state;
     if(!s.v)s.v=1;
     ['todos','goals','projects','habits','bucket','reading','journal','workouts','workoutLog','workoutSched','runs','runPlan','assets','debts','nwSnaps','budgetCats','spend','savings','bills','wins','sleepLog','skills','inbox','meetings'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[];});
+    s.goals.forEach(g=>{delete g.nextAction;}); // next action is now always automatic (first open step)
     if(!s.big3||typeof s.big3!=='object')s.big3={};
     if(!s.goalHist||typeof s.goalHist!=='object')s.goalHist={};
     ['focusLog','savedFoods','savedMeals'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[];});
@@ -1500,7 +1499,9 @@ function projNext(p){
   return t?{text:t.text,task:t,proj:p}:null;
 }
 function goalNextA(g){
-  if(g.nextAction)return{text:g.nextAction,manual:true};
+  // Automatic: the first open step is the next action; fall back to linked tasks.
+  const s=(g.steps||[]).find(x=>!x.done);
+  if(s)return{text:s.text};
   const pool=openTasksOf((t,p)=>t.goalId===g.id||(p&&p.goalId===g.id));
   return pool.length?{text:pool[0].t.text,task:pool[0].t,proj:pool[0].proj}:null;
 }
@@ -1765,8 +1766,8 @@ function vGoals(){
       '<div style="display:flex;align-items:center;gap:12px;margin:14px 0 2px"><div style="flex:1">'+bar(p,col)+'</div><span class="mono" style="font-size:13px;font-weight:600;color:'+col+'">'+p+'%</span></div>'+
       breakdown+
       (projChips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">'+projChips+'</div>':'')+
-      '<div class="next-slot" data-nextslot="'+g.id+'" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"><span class="eyebrow" style="display:block;margin-bottom:5px">Next action'+(allSteps.some(s=>!s.done)?' <span class="faint" style="text-transform:none;letter-spacing:0;font-weight:400">\u2014 drag a step here to set it</span>':'')+'</span>'+
-        (nx?'<div style="font-size:13.5px">'+esc(nx.text)+(nx.manual?' <span class="faint" style="font-size:11px">(manual \u2014 edit goal to change)</span>':'')+'</div>':'<div class="faint" style="font-size:12.5px">Nothing queued \u2014 add a step, link a project, or set one in Edit.</div>')+'</div>'+
+      '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"><span class="eyebrow" style="display:block;margin-bottom:5px">Next action</span>'+
+        (nx?'<div style="font-size:13.5px">'+esc(nx.text)+'</div>':'<div class="faint" style="font-size:12.5px">Nothing queued \u2014 add a step or link a project.</div>')+'</div>'+
       (openT?'<div style="margin-top:8px"><span class="eyebrow" style="display:block;margin-bottom:2px">Open linked tasks</span>'+openT+'</div>':'')+
       '<div style="margin-top:8px">'+steps+'</div>'+stepCtl+
       '<div class="addbar" style="margin-top:10px"><input class="inp" placeholder="Add a step\u2026" data-enter="step-add" data-goal="'+g.id+'"><button class="btn sm" data-act="step-add" data-goal="'+g.id+'">'+svg(I.plus)+'Step</button></div>'+
@@ -3346,15 +3347,13 @@ const actions={
     {key:'target',label:'Target date',type:'date',half:true,value:''},
     {key:'area',label:'Life area',type:'select',value:'',half:true,options:areaOpts()},
     {key:'why',label:'Why it matters (optional)',type:'textarea',placeholder:'The reason behind it…'}
-    ,{key:'nextAction',label:'Next action (optional — overrides the automatic suggestion)',placeholder:'The very next step…'}
-  ],onSave(v){if(!v.title)return;S().goals.push({id:uid(),title:v.title,target:v.target||null,why:v.why||'',steps:[],area:v.area||'',nextAction:v.nextAction||'',created:todayStr()});commit();}});},
+  ],onSave(v){if(!v.title)return;S().goals.push({id:uid(),title:v.title,target:v.target||null,why:v.why||'',steps:[],area:v.area||'',created:todayStr()});commit();}});},
   'goal-edit'(el){const g=S().goals.find(x=>x.id===el.dataset.id);if(!g)return;openModal({title:'Edit goal',fields:[
     {key:'title',label:'Goal',value:g.title},
     {key:'target',label:'Target date',type:'date',half:true,value:g.target||''},
     {key:'area',label:'Life area',type:'select',value:g.area||'',half:true,options:areaOpts()},
     {key:'why',label:'Why it matters',type:'textarea',value:g.why}
-    ,{key:'nextAction',label:'Next action (blank = automatic)',value:g.nextAction||''}
-  ],onSave(v){if(!v.title)return;g.title=v.title;g.target=v.target||null;g.why=v.why;g.area=v.area||'';g.nextAction=v.nextAction||'';commit();}});},
+  ],onSave(v){if(!v.title)return;g.title=v.title;g.target=v.target||null;g.why=v.why;g.area=v.area||'';commit();}});},
   'goal-del'(el){const i=S().goals.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().goals.splice(i,1);commit();toast('Goal deleted',()=>{S().goals.splice(i,0,rm);commit();});},
   'step-add'(el){const g=S().goals.find(x=>x.id===el.dataset.goal);if(!g)return;const inp=document.querySelector('[data-enter="step-add"][data-goal="'+el.dataset.goal+'"]');const t=inp?inp.value.trim():'';if(!t)return;g.steps.push({id:uid(),text:t,done:false});commit();},
   'step-toggle'(el){const g=S().goals.find(x=>x.id===el.dataset.goal);if(!g)return;const s=g.steps.find(x=>x.id===el.dataset.id);if(s){s.done=!s.done;commit();}},
@@ -3514,11 +3513,6 @@ document.addEventListener('pointerdown',e=>{
 document.addEventListener('pointermove',e=>{
   if(!dragCtx)return;
   e.preventDefault();
-  // Dragging a goal step: light up that goal's Next-action slot as a drop target.
-  if(dragCtx.list.dataset.goalid){
-    const slot=document.querySelector('.next-slot[data-nextslot="'+dragCtx.list.dataset.goalid+'"]');
-    if(slot){const r=slot.getBoundingClientRect();const over=e.clientY>=r.top&&e.clientY<=r.bottom&&e.clientX>=r.left&&e.clientX<=r.right;slot.classList.toggle('drop-hot',over);dragCtx.overNext=over;}
-  }
   // Only consider items belonging to THIS list (goal cards contain nested step lists).
   const others=[...dragCtx.list.querySelectorAll('[data-drag-item]:not(.dragging)')].filter(el=>el.closest('[data-draglist]')===dragCtx.list);
   let placed=false;
@@ -3534,7 +3528,6 @@ document.addEventListener('pointermove',e=>{
 function endDrag(){
   if(!dragCtx)return;
   dragCtx.row.classList.remove('dragging');
-  document.querySelectorAll('.next-slot.drop-hot').forEach(s=>s.classList.remove('drop-hot'));
   const ids=[...dragCtx.list.querySelectorAll('[data-drag-item]')].filter(el=>el.closest('[data-draglist]')===dragCtx.list).map(el=>el.dataset.id);
   if(dragCtx.list.dataset.kind==='areas'){
     S().areas.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
@@ -3547,17 +3540,11 @@ function endDrag(){
   if(dragCtx.list.dataset.goalid){
     const g=S().goals.find(x=>x.id===dragCtx.list.dataset.goalid);
     if(g){
-      if(dragCtx.overNext){
-        // Dropped onto the Next-action slot: set that step as the manual next action.
-        const s=(g.steps||[]).find(x=>x.id===dragCtx.row.dataset.id);
-        if(s){g.nextAction=s.text;toast('Next action set');}
-      }else{
-        // Permute only the visible steps among their slots; hidden (done/clipped) steps stay put.
-        const idSet=new Set(ids);
-        const ordered=ids.map(id=>(g.steps||[]).find(s=>s.id===id)).filter(Boolean);
-        let vi=0;
-        g.steps=g.steps.map(s=>idSet.has(s.id)?ordered[vi++]:s);
-      }
+      // Permute only the visible steps among their slots; hidden (done/clipped) steps stay put.
+      const idSet=new Set(ids);
+      const ordered=ids.map(id=>(g.steps||[]).find(s=>s.id===id)).filter(Boolean);
+      let vi=0;
+      g.steps=g.steps.map(s=>idSet.has(s.id)?ordered[vi++]:s);
     }
     dragCtx=null;commit();return;
   }
