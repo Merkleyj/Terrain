@@ -58,6 +58,13 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
 .nav-count{margin-left:auto;font-family:var(--mono);font-size:11px;background:var(--surface-2);color:var(--ink-soft);padding:1px 7px;border-radius:20px;font-weight:500}
 .nav-item.on .nav-count{background:rgba(255,255,255,.18);color:#fff}
 .sidebar-foot{margin-top:auto;padding:14px 10px 4px;font-size:11px;color:var(--ink-faint);line-height:1.4;border-top:1px solid var(--line)}
+/* Account footer (Black Ink-style) */
+.sb-acct{display:flex;align-items:center;gap:9px}
+.sb-ava{width:30px;height:30px;border-radius:50%;background:var(--sage);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.sb-em{flex:1;min-width:0;font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-sync{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-soft);margin-top:9px;padding-left:2px}
+.sb-sync i{width:7px;height:7px;border-radius:50%;background:var(--sage);display:inline-block;flex:none}
+.sb-sync i.off{background:var(--stone)}
 
 .main{min-width:0;display:flex;flex-direction:column}
 .topbar{position:sticky;top:0;z-index:20;background:rgba(244,240,232,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:16px 30px;display:flex;align-items:center;gap:16px}
@@ -1042,6 +1049,21 @@ function exitTV(){
   render();
 }
 document.addEventListener('fullscreenchange',function(){if(!document.fullscreenElement&&ui.tv)exitTV();});
+// Sidebar account footer (styled after Black Ink): avatar + email + sign-out,
+// with a live sync-status line underneath.
+function sbFootInner(){
+  const on=(typeof Sync!=='undefined'&&Sync.uid);
+  if(on){
+    const em=Sync.email||'Account';
+    const st=Sync.status==='syncing'?'Syncing…':'Synced to cloud';
+    return '<div class="sb-acct"><div class="sb-ava">'+esc(em[0].toUpperCase())+'</div><div class="sb-em" title="'+esc(em)+'">'+esc(em)+'</div>'+
+      '<button class="icon-btn" data-act="sync-signout" aria-label="Sign out" title="Sign out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></button></div>'+
+      '<div class="sb-sync"><i'+(Sync.status==='syncing'?' class="off"':'')+'></i>'+st+'</div>';
+  }
+  return '<div class="sb-acct"><div class="sb-ava" style="background:var(--stone)">•</div><div class="sb-em">This device only</div>'+
+    '<button class="btn sm" data-act="sync-signin">Sign in</button></div>'+
+    '<div class="sb-sync"><i class="off"></i>Not synced</div>';
+}
 function shell(){
   const t=new Date();
   const setBtn='<button class="nav-item'+(ui.view==='settings'?' on':'')+'" data-act="nav" data-id="settings" style="margin-top:auto;border-top:1px solid var(--line);border-radius:0 0 10px 10px;padding-top:14px">'+svg(I.sliders)+'<span>Settings</span></button>';
@@ -1051,6 +1073,7 @@ function shell(){
         '<div class="brand"><div class="brand-mark">'+svg(I.leaf)+'</div><div><div class="brand-name">Terrain</div><div class="brand-sub">Life OS</div></div></div>'+
         '<nav class="nav">'+navHtml()+'</nav>'+
         setBtn+
+        '<div class="sidebar-foot" id="sb-foot" style="margin-top:0">'+sbFootInner()+'</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><h1>'+TITLES[ui.view]+'</h1><span class="saved" id="saved"><i></i>Saved</span>'+
@@ -1080,6 +1103,8 @@ function refreshNav(){
   if(navEl)navEl.innerHTML=navHtml();
   const setBtn=document.querySelector('.sidebar > .nav-item[data-id="settings"]');
   if(setBtn)setBtn.classList.toggle('on',ui.view==='settings');
+  const foot=document.getElementById('sb-foot');
+  if(foot)foot.innerHTML=sbFootInner();
   const mobEl=document.querySelector('.mobnav');
   if(mobEl)mobEl.innerHTML=mobHtml();
   if(ui.moreOpen){const m=document.getElementById('mobmore');if(m)m.innerHTML=mobMoreHtml();}
@@ -2843,6 +2868,7 @@ const actions={
   'more-open'(){openMore();},
   'more-close'(){closeMore();},
   'sync-signout'(){if(typeof Sync!=='undefined')Sync.signOut();},
+  'sync-signin'(){if(typeof Sync!=='undefined'&&Sync.sb)Sync.showLogin(false);},
   'qa-open'(){openQa();},
   'qa-close'(){closeQa();},
   'tv-enter'(){enterTV();},
@@ -3858,6 +3884,9 @@ const Sync={
     this.status=s||'';
     // if the Settings screen is open, update its account-card status live
     if(ui.view==='settings'){const el=document.getElementById('sync-status-txt');if(el)el.textContent=(s==='synced'?'✓ Synced':(s==='syncing'?'Syncing…':''));}
+    // keep the sidebar account footer in step
+    const foot=document.getElementById('sb-foot');
+    if(foot)foot.innerHTML=sbFootInner();
   }
 };
 /* ---------- boot ---------- */
