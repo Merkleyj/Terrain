@@ -3699,6 +3699,26 @@ const Sync={
   },
   login(){this._auth('signInWithPassword');},
   signup(){this._auth('signUp');},
+  google(){
+    this.err('');
+    const self=this;
+    this.sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}})
+      .then(function(res){if(res.error)self.err(self._msg(res.error));})
+      .catch(function(e){self.err(self._msg(e));});
+  },
+  magic(){
+    const em=(this._email&&this._email.value||'').trim();
+    if(!em){this.err('Type your email above first, then tap the magic link button.');return;}
+    this.err('');this._busy(true);
+    const self=this;
+    this.sb.auth.signInWithOtp({email:em,options:{emailRedirectTo:location.origin+location.pathname}})
+      .then(function(res){
+        self._busy(false);
+        if(res.error){self.err(self._msg(res.error));return;}
+        self.err('Check your email — we sent you a sign-in link. Open it on this device.',true);
+      })
+      .catch(function(e){self._busy(false);self.err(self._msg(e));});
+  },
   _auth(method){
     this._ensurePw();
     const em=(this._email.value||'').trim(),pw=this._pw.value||'';
@@ -3731,36 +3751,50 @@ const Sync={
     css.textContent=`
 #sync-overlay{position:fixed;inset:0;z-index:1000;background:var(--paper,#F4F0E8);display:none;align-items:center;justify-content:center;padding:24px}
 #sync-overlay.show{display:flex}
-#sync-overlay .sync-card{width:100%;max-width:360px;background:var(--surface,#fff);border:1px solid var(--line,#e4dccb);border-radius:16px;box-shadow:0 24px 60px -24px rgba(44,42,36,.45);padding:30px 26px;text-align:center}
-#sync-overlay .sync-mark{width:48px;height:48px;border-radius:13px;background:var(--sage,#6E7A5A);display:grid;place-items:center;margin:0 auto 18px}
-#sync-overlay .sync-mark svg{width:27px;height:27px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-#sync-overlay h2{font-family:var(--serif,Georgia,serif);font-weight:600;font-size:22px;margin:0 0 5px;color:var(--ink,#2C2A24)}
-#sync-overlay p.sync-sub{margin:0 0 20px;font-size:13.5px;line-height:1.5;color:var(--ink-soft,#6E685C)}
-#sync-overlay input{width:100%;border:1px solid var(--line,#e4dccb);background:var(--surface,#fff);border-radius:10px;padding:12px 13px;font-size:16px;margin-bottom:10px;outline:none;color:var(--ink,#2C2A24)}
+#sync-overlay .sync-card{width:100%;max-width:380px;background:var(--surface,#fff);border:1px solid var(--line,#e4dccb);border-radius:16px;box-shadow:0 24px 60px -24px rgba(44,42,36,.45);padding:28px 26px;text-align:left}
+#sync-overlay .sync-head{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+#sync-overlay .sync-mark{width:42px;height:42px;border-radius:12px;background:var(--sage,#6E7A5A);display:grid;place-items:center;flex:none}
+#sync-overlay .sync-mark svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#sync-overlay h2{font-family:var(--serif,Georgia,serif);font-weight:600;font-size:23px;margin:0;color:var(--ink,#2C2A24)}
+#sync-overlay p.sync-sub{margin:0 0 18px;font-size:13.5px;line-height:1.5;color:var(--ink-soft,#6E685C)}
+#sync-overlay .sync-tabs{display:flex;background:var(--paper,#F4F0E8);border:1px solid var(--line,#e4dccb);border-radius:11px;padding:4px;margin-bottom:16px}
+#sync-overlay .sync-tabs button{flex:1;border:none;background:none;padding:9px 6px;border-radius:8px;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--ink-soft,#6E685C);cursor:pointer}
+#sync-overlay .sync-tabs button.on{background:var(--surface,#fff);color:var(--ink,#2C2A24);box-shadow:0 1px 4px rgba(44,42,36,.14)}
+#sync-overlay .sync-lab{display:block;font-size:12px;font-weight:600;color:var(--ink-soft,#6E685C);margin:0 0 5px}
+#sync-overlay input{width:100%;border:1px solid var(--line,#e4dccb);background:var(--surface,#fff);border-radius:10px;padding:12px 13px;font-size:16px;margin-bottom:12px;outline:none;color:var(--ink,#2C2A24)}
 #sync-overlay input:focus{border-color:var(--sage,#6E7A5A);box-shadow:0 0 0 3px var(--sage-bg,#E9ECDF)}
-#sync-overlay .sync-btns{display:flex;gap:9px;margin-top:4px}
-#sync-overlay .sync-btns button{flex:1;border-radius:10px;padding:12px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;border:1px solid var(--sage,#6E7A5A)}
-#sync-overlay #sync-login{background:var(--sage,#6E7A5A);color:#fff}
-#sync-overlay #sync-signup{background:var(--surface,#fff);color:var(--sage,#6E7A5A)}
-#sync-overlay .sync-btns button:disabled{opacity:.55;cursor:default}
-#sync-overlay #sync-err{display:none;margin:13px 0 0;font-size:13px;color:var(--clay,#B06A48);line-height:1.45}
-#sync-overlay .sync-skip{display:block;margin-top:18px;font-size:12px;color:var(--ink-faint,#9C9483);text-decoration:underline;cursor:pointer;background:none;border:none;width:100%;padding:4px}
-#sync-overlay #sync-loading{color:var(--ink-soft,#6E685C);font-size:14px;padding:14px 0}`;
+#sync-overlay #sync-primary{width:100%;border:none;border-radius:10px;padding:13px;font-family:inherit;font-size:14.5px;font-weight:600;cursor:pointer;background:var(--sage,#6E7A5A);color:#fff;margin-top:2px}
+#sync-overlay #sync-primary:hover{background:#5f6b4c}
+#sync-overlay .sync-or{display:flex;align-items:center;gap:10px;margin:16px 0 14px;color:var(--ink-faint,#9C9483);font-size:10.5px;font-weight:700;letter-spacing:.14em}
+#sync-overlay .sync-or:before,#sync-overlay .sync-or:after{content:'';flex:1;height:1px;background:var(--line,#e4dccb)}
+#sync-overlay .sync-alt{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;border:1px solid var(--line,#e4dccb);background:var(--surface,#fff);border-radius:10px;padding:12px;font-family:inherit;font-size:14px;font-weight:600;color:var(--ink,#2C2A24);cursor:pointer;margin-bottom:9px}
+#sync-overlay .sync-alt:hover{background:var(--paper,#F4F0E8)}
+#sync-overlay .sync-alt svg{width:17px;height:17px;flex:none}
+#sync-overlay button:disabled{opacity:.55;cursor:default}
+#sync-overlay #sync-err{display:none;margin:0 0 10px;font-size:13px;color:var(--clay,#B06A48);line-height:1.45}
+#sync-overlay #sync-err.ok{color:var(--sage,#6E7A5A)}
+#sync-overlay .sync-skip{display:block;margin-top:14px;font-size:12px;color:var(--ink-faint,#9C9483);text-decoration:underline;cursor:pointer;background:none;border:none;width:100%;padding:4px;text-align:center}
+#sync-overlay #sync-loading{color:var(--ink-soft,#6E685C);font-size:14px;padding:14px 0;text-align:center}`;
     document.head.appendChild(css);
     const ov=document.createElement('div');
     ov.id='sync-overlay';
     ov.innerHTML=
       '<div class="sync-card">'+
-        '<div class="sync-mark"><svg viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 4 13c0-6 5-9 16-9 0 8-5 13-9 13z"/><path d="M4 20c3-4 6-6 10-7"/></svg></div>'+
         '<div id="sync-loading">Loading…</div>'+
         '<div id="sync-form">'+
-          '<h2>Sign in to Terrain</h2>'+
-          '<p class="sync-sub">Log in to sync your data across your phone and computer. First time? Tap “Create account.”</p>'+
-          '<input id="sync-email" type="email" inputmode="email" autocomplete="email" placeholder="Email">'+
-          '<input id="sync-pw" type="password" autocomplete="current-password" placeholder="Password">'+
+          '<div class="sync-head"><div class="sync-mark"><svg viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 4 13c0-6 5-9 16-9 0 8-5 13-9 13z"/><path d="M4 20c3-4 6-6 10-7"/></svg></div><h2>Terrain</h2></div>'+
+          '<p class="sync-sub">Your life, synced securely across devices.</p>'+
+          '<div class="sync-tabs"><button id="sync-tab-in" type="button" class="on">Sign in</button><button id="sync-tab-up" type="button">Create account</button></div>'+
+          '<label class="sync-lab" for="sync-email">Email</label>'+
+          '<input id="sync-email" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com">'+
+          '<label class="sync-lab" for="sync-pw" id="sync-pw-lab">Password</label>'+
+          '<input id="sync-pw" type="password" autocomplete="current-password" placeholder="••••••••">'+
           '<div id="sync-err"></div>'+
-          '<div class="sync-btns"><button id="sync-login" type="button">Log in</button><button id="sync-signup" type="button">Create account</button></div>'+
-          '<button id="sync-skip" class="sync-skip" type="button">Use on this device only</button>'+
+          '<button id="sync-primary" type="button">Sign in</button>'+
+          '<div class="sync-or">OR</div>'+
+          '<button id="sync-google" class="sync-alt" type="button"><svg viewBox="0 0 24 24"><path fill="#4285F4" stroke="none" d="M23.5 12.3c0-.8-.1-1.6-.2-2.4H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6v3h3.9c2.3-2.1 3.5-5.1 3.5-8.7z"/><path fill="#34A853" stroke="none" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1C3.3 21.3 7.4 24 12 24z"/><path fill="#FBBC05" stroke="none" d="M5.3 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.3C.5 8.2 0 10 0 12s.5 3.8 1.3 5.4l4-3.1z"/><path fill="#EA4335" stroke="none" d="M12 4.8c1.8 0 3.3.6 4.6 1.8L20 3.1C18 1.2 15.2 0 12 0 7.4 0 3.3 2.7 1.3 6.6l4 3.1c.9-2.9 3.6-4.9 6.7-4.9z"/></svg>Continue with Google</button>'+
+          '<button id="sync-magic" class="sync-alt" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Email me a magic link</button>'+
+          '<button id="sync-skip" class="sync-skip" type="button">Use without an account (this device only)</button>'+
         '</div>'+
       '</div>';
     document.body.appendChild(ov);
@@ -3770,21 +3804,36 @@ const Sync={
     this._errEl=ov.querySelector('#sync-err');
     this._form=ov.querySelector('#sync-form');
     this._loading=ov.querySelector('#sync-loading');
+    this._mode='in';
     const self=this;
-    ov.querySelector('#sync-login').addEventListener('click',function(){self.login();});
-    ov.querySelector('#sync-signup').addEventListener('click',function(){self.signup();});
+    ov.querySelector('#sync-tab-in').addEventListener('click',function(){self.setMode('in');});
+    ov.querySelector('#sync-tab-up').addEventListener('click',function(){self.setMode('up');});
+    ov.querySelector('#sync-primary').addEventListener('click',function(){self._mode==='up'?self.signup():self.login();});
+    ov.querySelector('#sync-google').addEventListener('click',function(){self.google();});
+    ov.querySelector('#sync-magic').addEventListener('click',function(){self.magic();});
     ov.querySelector('#sync-skip').addEventListener('click',function(){self.skip();});
-    this._pw.addEventListener('keydown',function(e){if(e.key==='Enter')self.login();});
+    this._pw.addEventListener('keydown',function(e){if(e.key==='Enter'){self._mode==='up'?self.signup():self.login();}});
+  },
+  setMode(m){
+    this._mode=m;
+    const ti=document.getElementById('sync-tab-in'),tu=document.getElementById('sync-tab-up'),pr=document.getElementById('sync-primary');
+    if(ti)ti.classList.toggle('on',m==='in');
+    if(tu)tu.classList.toggle('on',m==='up');
+    if(pr)pr.textContent=m==='up'?'Create account':'Sign in';
+    if(this._pw)this._pw.setAttribute('autocomplete',m==='up'?'new-password':'current-password');
+    this.err('');
   },
   // Recreate the password field if it was removed (see hideLogin). It only ever
   // lives in the DOM while the sign-in screen is actually on screen.
   _ensurePw(){
     if(this._pw&&this._pw.isConnected)return;
     const pw=document.createElement('input');
-    pw.id='sync-pw';pw.type='password';pw.setAttribute('autocomplete','current-password');pw.placeholder='Password';
+    pw.id='sync-pw';pw.type='password';pw.setAttribute('autocomplete',this._mode==='up'?'new-password':'current-password');pw.placeholder='••••••••';
     const self=this;
-    pw.addEventListener('keydown',function(e){if(e.key==='Enter')self.login();});
-    if(this._email&&this._email.parentNode)this._email.insertAdjacentElement('afterend',pw);
+    pw.addEventListener('keydown',function(e){if(e.key==='Enter'){self._mode==='up'?self.signup():self.login();}});
+    const lab=document.getElementById('sync-pw-lab');
+    if(lab&&lab.parentNode)lab.insertAdjacentElement('afterend',pw);
+    else if(this._email&&this._email.parentNode)this._email.insertAdjacentElement('afterend',pw);
     else if(this._form)this._form.insertBefore(pw,this._errEl||null);
     this._pw=pw;
   },
@@ -3806,7 +3855,7 @@ const Sync={
     // no password input on the page at all, that can't happen.
     if(this._pw){this._pw.value='';this._pw.remove();this._pw=null;}
   },
-  err(m){if(this._errEl){this._errEl.textContent=m||'';this._errEl.style.display=m?'block':'none';}},
+  err(m,ok){if(this._errEl){this._errEl.textContent=m||'';this._errEl.style.display=m?'block':'none';this._errEl.classList.toggle('ok',!!ok);}},
   _busy(b){if(this._form)this._form.querySelectorAll('button,input').forEach(function(x){x.disabled=b;});},
   setStatus(s){
     this.status=s||'';
