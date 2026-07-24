@@ -5,7 +5,7 @@
    - Other GETs (fonts, favicons, etc.): cache-first, then network, and cache
      the response for next time so the app looks right offline after first run.
    Bump CACHE when you change terrain.html so clients pick up the new version. */
-const CACHE = 'terrain-v39';
+const CACHE = 'terrain-v40';
 const APP_SHELL = 'terrain.html';
 const ASSETS = [
   APP_SHELL,
