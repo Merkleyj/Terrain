@@ -3759,6 +3759,30 @@ const Sync={
     try{this.sb.auth.signOut();}catch(e){}
   },
   skip(){this.hideLogin();this.setStatus('');},
+  // Plain-English connection check — tells us exactly which address a
+  // restrictive network (e.g. work wifi) is blocking.
+  async diagnose(){
+    const out=document.getElementById('sync-diag-out');
+    if(!out)return;
+    out.classList.add('show');
+    out.innerHTML='Checking…';
+    const test=async(label,url,opts)=>{
+      const t0=Date.now();
+      try{
+        await fetch(url,Object.assign({cache:'no-store',mode:'cors'},opts||{}));
+        return {label,ok:true,ms:Date.now()-t0};
+      }catch(e){return {label,ok:false,ms:Date.now()-t0,err:(e&&e.message)||'blocked'};}
+    };
+    const rows=[];
+    rows.push(await test('This app (terrain-life.com)',location.origin+'/supabase.min.js?ping='+Date.now()));
+    rows.push(await test('Sync server (supabase.co)',SUPABASE_URL+'/auth/v1/health?ping='+Date.now()));
+    let html=rows.map(r=>'<div>'+(r.ok?'<span class="ok">✓ reachable</span>':'<span class="bad">✗ blocked</span>')+' — <b>'+r.label+'</b></div>').join('');
+    const appOk=rows[0].ok, syncOk=rows[1].ok;
+    if(appOk&&syncOk)html+='<div style="margin-top:8px">Everything looks reachable. If sync still fails, the problem is your email or password — not the network.</div>';
+    else if(appOk&&!syncOk)html+='<div style="margin-top:8px">This network is blocking the <b>sync server</b>. The app works offline and saves on this device; tell Claude "sync server is blocked" and it can route sync through your own domain instead.</div>';
+    else html+='<div style="margin-top:8px">This network is blocking Terrain itself. Try mobile data, or ask IT to allow <b>terrain-life.com</b>.</div>';
+    out.innerHTML=html;
+  },
   _msg(e){
     const m=(e&&e.message)||'';
     if(/invalid login credentials/i.test(m))return 'Wrong email or password. First time here? Tap “Create account.”';
@@ -3797,6 +3821,12 @@ const Sync={
 #sync-overlay #sync-err{display:none;margin:0 0 10px;font-size:13px;color:var(--clay,#B06A48);line-height:1.45}
 #sync-overlay #sync-err.ok{color:var(--sage,#6E7A5A)}
 #sync-overlay .sync-skip{display:block;margin-top:14px;font-size:12px;color:var(--ink-faint,#9C9483);text-decoration:underline;cursor:pointer;background:none;border:none;width:100%;padding:4px;text-align:center}
+#sync-overlay .sync-diag{display:block;margin-top:6px;font-size:11.5px;color:var(--ink-faint,#9C9483);text-decoration:underline;cursor:pointer;background:none;border:none;width:100%;padding:4px;text-align:center}
+#sync-overlay #sync-diag-out{margin-top:10px;font-size:12px;line-height:1.6;color:var(--ink-soft,#6E685C);text-align:left;background:var(--paper,#F4F0E8);border:1px solid var(--line,#e4dccb);border-radius:10px;padding:10px 12px;display:none}
+#sync-overlay #sync-diag-out.show{display:block}
+#sync-overlay #sync-diag-out b{color:var(--ink,#2C2A24)}
+#sync-overlay #sync-diag-out .ok{color:var(--sage,#6E7A5A);font-weight:700}
+#sync-overlay #sync-diag-out .bad{color:var(--clay,#B06A48);font-weight:700}
 #sync-overlay #sync-loading{color:var(--ink-soft,#6E685C);font-size:14px;padding:14px 0;text-align:center}`;
     document.head.appendChild(css);
     const ov=document.createElement('div');
@@ -3818,6 +3848,8 @@ const Sync={
           '<button id="sync-google" class="sync-alt" type="button"><svg viewBox="0 0 24 24"><path fill="#4285F4" stroke="none" d="M23.5 12.3c0-.8-.1-1.6-.2-2.4H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6v3h3.9c2.3-2.1 3.5-5.1 3.5-8.7z"/><path fill="#34A853" stroke="none" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1C3.3 21.3 7.4 24 12 24z"/><path fill="#FBBC05" stroke="none" d="M5.3 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.3C.5 8.2 0 10 0 12s.5 3.8 1.3 5.4l4-3.1z"/><path fill="#EA4335" stroke="none" d="M12 4.8c1.8 0 3.3.6 4.6 1.8L20 3.1C18 1.2 15.2 0 12 0 7.4 0 3.3 2.7 1.3 6.6l4 3.1c.9-2.9 3.6-4.9 6.7-4.9z"/></svg>Continue with Google</button>'+
           '<button id="sync-magic" class="sync-alt" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Email me a magic link</button>'+
           '<button id="sync-skip" class="sync-skip" type="button">Use without an account (this device only)</button>'+
+          '<button id="sync-diag" class="sync-diag" type="button">Sync not working? Run a connection check</button>'+
+          '<div id="sync-diag-out"></div>'+
         '</div>'+
       '</div>';
     document.body.appendChild(ov);
@@ -3835,6 +3867,7 @@ const Sync={
     ov.querySelector('#sync-google').addEventListener('click',function(){self.google();});
     ov.querySelector('#sync-magic').addEventListener('click',function(){self.magic();});
     ov.querySelector('#sync-skip').addEventListener('click',function(){self.skip();});
+    ov.querySelector('#sync-diag').addEventListener('click',function(){self.diagnose();});
     this._pw.addEventListener('keydown',function(e){if(e.key==='Enter'){self._mode==='up'?self.signup():self.login();}});
   },
   setMode(m){
