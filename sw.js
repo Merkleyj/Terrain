@@ -5,7 +5,7 @@
    - Other GETs (fonts, favicons, etc.): cache-first, then network, and cache
      the response for next time so the app looks right offline after first run.
    Bump CACHE when you change terrain.html so clients pick up the new version. */
-const CACHE = 'terrain-v43';
+const CACHE = 'terrain-v44';
 const APP_SHELL = 'terrain.html';
 const ASSETS = [
   APP_SHELL,
@@ -45,6 +45,7 @@ self.addEventListener('fetch', event => {
   // connection and must never be served from cache.
   const url = new URL(req.url);
   if (/(^|\.)supabase\.co$/.test(url.hostname) ||
+      url.hostname === 'api.terrain-life.com' ||
       /(^|\.)googleapis\.com$/.test(url.hostname)) return;
 
   // Navigations (opening/refreshing the app): try network, fall back to cache.

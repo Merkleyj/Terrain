@@ -3638,7 +3638,10 @@ document.addEventListener('keydown',e=>{
 /* ---------- cloud sync (Supabase) ---------- */
 // One row per user in public.terrain_state (RLS: each user sees only their row).
 // The publishable key below is safe to ship publicly — access is enforced by RLS.
-const SUPABASE_URL='https://fxizizakecmhzfainshn.supabase.co';
+// Sync goes through api.terrain-life.com (a Cloudflare Worker that forwards to
+// Supabase). Restrictive networks often block supabase.co directly; routing via
+// our own domain keeps sync working there.
+const SUPABASE_URL='https://api.terrain-life.com';
 const SUPABASE_KEY='sb_publishable_o5gw22bIdHOHRll-EjQXbg_xLoOfPY4';
 const Sync={
   active:false, sb:null, uid:null, email:'', channel:null, lastUpdatedAt:0, _t:null, status:'',
@@ -3775,11 +3778,11 @@ const Sync={
     };
     const rows=[];
     rows.push(await test('This app (terrain-life.com)',location.origin+'/supabase.min.js?ping='+Date.now()));
-    rows.push(await test('Sync server (supabase.co)',SUPABASE_URL+'/auth/v1/health?ping='+Date.now()));
+    rows.push(await test('Sync server (api.terrain-life.com)',SUPABASE_URL+'/auth/v1/health?ping='+Date.now()));
     let html=rows.map(r=>'<div>'+(r.ok?'<span class="ok">✓ reachable</span>':'<span class="bad">✗ blocked</span>')+' — <b>'+r.label+'</b></div>').join('');
     const appOk=rows[0].ok, syncOk=rows[1].ok;
     if(appOk&&syncOk)html+='<div style="margin-top:8px">Everything looks reachable. If sync still fails, the problem is your email or password — not the network.</div>';
-    else if(appOk&&!syncOk)html+='<div style="margin-top:8px">This network is blocking the <b>sync server</b>. The app works offline and saves on this device; tell Claude "sync server is blocked" and it can route sync through your own domain instead.</div>';
+    else if(appOk&&!syncOk)html+='<div style="margin-top:8px">This network is blocking the <b>sync server</b>, even though it runs on your own domain. The app still works and saves on this device. Ask IT to allow <b>api.terrain-life.com</b>.</div>';
     else html+='<div style="margin-top:8px">This network is blocking Terrain itself. Try mobile data, or ask IT to allow <b>terrain-life.com</b>.</div>';
     out.innerHTML=html;
   },
