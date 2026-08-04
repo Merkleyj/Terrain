@@ -26,6 +26,7 @@
   --plum:#8A6A72; --plum-bg:#EEE2E4;
   --pine:#5E7A73; --pine-bg:#E1EAE6;
   --meet:#5B7080; --meet-bg:#E1E7EB;
+  --event:#8A7B5B; --event-bg:#EDE7DA;
   --shadow:0 1px 2px rgba(44,42,36,.04), 0 8px 24px -12px rgba(44,42,36,.14);
   --shadow-sm:0 1px 2px rgba(44,42,36,.05);
   --r:14px; --r-sm:10px;
@@ -805,7 +806,7 @@ function enabled(id){
 
 /* ---------- transient ui state ---------- */
 const ui={view:'overview',moreOpen:false,qaOpen:false,qaMode:'main',tv:false,tvClock:null,habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
-  calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',macroFoodPage:0,rvOpen:new Set(),rvEdit:null,goalOpen:new Set(),goalShowDone:new Set(),focus:null,fTimer:null,skTimer:null,skTick:null,
+  calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',macroFoodPage:0,rvOpen:new Set(),rvEdit:null,goalOpen:new Set(),goalShowDone:new Set(),big3Date:todayStr(),focus:null,fTimer:null,skTimer:null,skTick:null,
   todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all'};
 
 /* ---------- computed ---------- */
@@ -1220,12 +1221,19 @@ function vOverview(){
 
   const readEmbed=(enabled('reading')&&reading.length)?'<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div class="card-h" style="margin-bottom:8px"><span class="eyebrow">Currently reading</span></div>'+readHtml+'</div>':'';
   // --- Today command center ---
-  const tB=big3Of(t);
+  // Big 3 can be pointed at another day so you can plan tomorrow tonight.
+  const b3d=ui.big3Date||t;
+  const b3IsToday=b3d===t;
+  const tB=big3Of(b3d);
   const b3rows=tB.items.map(it=>'<div class="row" style="padding:8px 2px"><button class="chk'+(it.done?' on':'')+'" data-act="big3-toggle" data-id="'+it.id+'">'+svg(I.check)+'</button><div class="txt"><div class="t" style="font-size:14px'+(it.done?';text-decoration:line-through;color:var(--ink-faint)':'')+'">'+esc(it.text)+'</div></div><button class="icon-btn del" data-act="big3-del" data-id="'+it.id+'">'+svg(I.trash)+'</button></div>').join('');
   const b3add=tB.items.length<3?'<div class="addbar" style="margin-top:8px"><input class="inp" id="b3-text" placeholder="Outcome '+(tB.items.length+1)+' of 3\u2026" data-enter="big3-add"><button class="btn sm" data-act="big3-add">'+svg(I.plus)+'</button></div>':'';
   const b3done=tB.items.length&&tB.items.every(i=>i.done);
-  const big3Card='<div class="card"><div class="card-h"><h3>Today\u2019s Big 3</h3>'+(b3done?'<span class="spacer" style="font-size:13px">\ud83c\udf89</span>':'<span class="spacer mono faint" style="font-size:12px">'+tB.items.filter(i=>i.done).length+'/'+(tB.items.length||3)+'</span>')+'</div>'+
-    (b3rows||'<p class="faint" style="font-size:13px;margin:2px 0 4px">Three outcomes that would make today a win \u2014 not tasks, outcomes.</p>')+b3add+
+  const b3Title=b3IsToday?'Today\u2019s Big 3':(b3d===addDays(t,1)?'Tomorrow\u2019s Big 3':fmtD(b3d)+'\u2019s Big 3');
+  const b3Nav='<div class="datenav" style="margin-left:auto"><button class="icon-btn" data-act="b3date" data-id="-1" aria-label="previous day">'+svg(I.chevL)+'</button>'+
+    (b3IsToday?'':'<button class="btn sm" data-act="b3date" data-id="0" style="padding:3px 8px;font-size:11.5px">Today</button>')+
+    '<button class="icon-btn" data-act="b3date" data-id="1" aria-label="next day">'+svg(I.chevR)+'</button></div>';
+  const big3Card='<div class="card"><div class="card-h"><h3>'+b3Title+'</h3>'+(b3done?'<span style="font-size:13px;margin-left:6px">\ud83c\udf89</span>':'<span class="mono faint" style="font-size:12px;margin-left:6px">'+tB.items.filter(i=>i.done).length+'/'+(tB.items.length||3)+'</span>')+b3Nav+'</div>'+
+    (b3rows||'<p class="faint" style="font-size:13px;margin:2px 0 4px">Three outcomes that would make '+(b3IsToday?'today':'that day')+' a win \u2014 not tasks, outcomes.</p>')+b3add+
     '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:6px">Next action \u2014 start here</label><input class="inp" data-change="big3-next" value="'+esc(tB.next||'')+'" placeholder="The single physical action to begin now\u2026"></div></div>';
   const evs=dayEvents(t);
   const agendaEvs=evs.filter(e=>!(e.src==='todo')).slice(0,6).map(e=>{const m=CAL_SRC[e.src];return '<button class="day-ev" data-act="cal-goto" data-view="'+e.view+'"><span class="cal-dot" style="background:var(--'+m.color+')"></span><span class="day-ev-txt'+(e.done?' done':'')+'">'+esc(e.text)+'</span><span class="tag" style="color:var(--'+m.color+')">'+m.label+'</span></button>';}).join('');
@@ -1287,7 +1295,7 @@ function macroRow(lab,val,goal,color,unit){
 }
 
 /* ---------- VIEW: CALENDAR ---------- */
-const CAL_SRC={meeting:{color:'meet',label:'Meeting',view:'calendar'},todo:{color:'stone',label:'To-Do',view:'todo'},goal:{color:'sage',label:'Goal',view:'goals'},project:{color:'clay',label:'Project',view:'projects'},workout:{color:'plum',label:'Workout',view:'workouts'},run:{color:'wheat',label:'Run',view:'running'},finance:{color:'pine',label:'Finance',view:'bills'}};
+const CAL_SRC={meeting:{color:'meet',label:'Meeting',view:'calendar'},event:{color:'event',label:'Event',view:'calendar'},todo:{color:'stone',label:'To-Do',view:'todo'},goal:{color:'sage',label:'Goal',view:'goals'},project:{color:'clay',label:'Project',view:'projects'},workout:{color:'plum',label:'Workout',view:'workouts'},run:{color:'wheat',label:'Run',view:'running'},finance:{color:'pine',label:'Finance',view:'bills'}};
 const CAL_ORDER={meeting:-1,todo:0,goal:1,project:2,workout:3,run:4,finance:5};
 function fmt12(t){const m=/^(\d{1,2}):(\d{2})$/.exec(t||'');if(!m)return t||'';let h=+m[1];const ap=h<12?'AM':'PM';h=h%12||12;return h+':'+m[2]+' '+ap;}
 function dayEvents(date){
@@ -1295,16 +1303,17 @@ function dayEvents(date){
   if(enabled('todo'))S().todos.forEach(t=>{if(t.due===date)out.push({src:'todo',id:t.id,text:t.text,done:!!t.done});});
   if(enabled('goals'))S().goals.forEach(g=>{if(g.target===date)out.push({src:'goal',id:g.id,text:g.title,done:goalPct(g)>=100});});
   if(enabled('projects'))S().projects.forEach(p=>(p.tasks||[]).forEach(t=>{if(t.due===date)out.push({src:'project',id:t.id,text:t.text,done:t.status==='done',sub:p.name});}));
-  if(enabled('workouts'))S().workoutSched.forEach(s=>{if(s.date===date)out.push({src:'workout',id:s.id,text:wkName(s.workoutId),done:S().workoutLog.some(l=>l.date===date&&l.workoutId===s.workoutId)});});
+  if(enabled('workouts'))S().workoutSched.forEach(s=>{if(s.date===date)out.push({src:'workout',id:s.id,text:wkName(s.workoutId),done:S().workoutLog.some(l=>l.date===date&&l.workoutId===s.workoutId),del:'wsched-del'});});
   if(enabled('running')){
     const ran=S().runs.some(r=>r.date===date);
     let planned=false;
-    (S().runPlan||[]).forEach(p=>{if(p.date===date){planned=true;out.push({src:'run',id:p.id,text:p.label,done:ran});}});
-    if(!planned)S().runs.forEach(r=>{if(r.date===date)out.push({src:'run',id:r.id,text:(Math.round(r.mi*10)/10)+' mi run · '+fmtSec(r.sec),done:true});});
+    (S().runPlan||[]).forEach(p=>{if(p.date===date){planned=true;out.push({src:'run',id:p.id,text:p.label,done:ran,del:'prun-del'});}});
+    if(!planned)S().runs.forEach(r=>{if(r.date===date)out.push({src:'run',id:r.id,text:(Math.round(r.mi*10)/10)+' mi run · '+fmtSec(r.sec),done:true,del:'run-del-day'});});
   }
   if(enabled('bills'))S().bills.forEach(b=>{if(billOccurs(b,date))out.push({src:'finance',id:b.id,text:b.name+' \u00b7 '+money(b.amt),done:(b.paidLog||[]).includes(date),view:'bills'});});
   if(enabled('savings'))S().savings.forEach(g=>{if(g.targetDate===date){const sv=(g.contribs||[]).reduce((a,c)=>a+(+c.amt||0),0);out.push({src:'finance',id:g.id,text:'Savings goal: '+g.name,done:sv>=(+g.target||0),view:'savings'});}});
-  S().meetings.forEach(mt=>{if(mt.date===date)out.push({src:'meeting',id:mt.id,text:(mt.time?fmt12(mt.time)+' · ':'')+mt.title,done:false,view:'calendar',link:mt.link||''});});
+  // meetings[] holds both meetings and plain events (kind:'event')
+  S().meetings.forEach(mt=>{if(mt.date===date)out.push({src:mt.kind==='event'?'event':'meeting',id:mt.id,text:(mt.time?fmt12(mt.time)+' · ':'')+mt.title,done:false,view:'calendar',link:mt.link||''});});
   out.forEach(e=>{if(!e.view)e.view=CAL_SRC[e.src].view;});
   return out.sort((a,b)=>CAL_ORDER[a.src]-CAL_ORDER[b.src]);
 }
@@ -1373,11 +1382,20 @@ function openDay(date){
   const hs=habitStat(date), mt=macroTotals(date), mg=S().macroGoals;
   const calP=pct(mt.cal,mg.cal);
   const evHtml=evs.length?evs.map(e=>{const m=CAL_SRC[e.src];
-    if(e.src==='meeting'){
-      return '<div class="day-ev" style="cursor:default"><span class="cal-dot" style="background:var(--meet)"></span>'+
+    if(e.src==='meeting'||e.src==='event'){
+      return '<div class="day-ev" style="cursor:default"><span class="cal-dot" style="background:var(--'+m.color+')"></span>'+
         '<span class="day-ev-txt">'+esc(e.text)+'</span>'+
-        (e.link?'<a class="tag" href="'+esc(e.link)+'" target="_blank" rel="noopener noreferrer" style="color:var(--meet);text-decoration:underline">Join</a>':'<span class="tag" style="color:var(--meet)">Meeting</span>')+
-        '<button class="icon-btn del" data-act="meet-del" data-id="'+e.id+'" style="margin-left:2px" aria-label="delete meeting">'+svg(I.trash)+'</button></div>';
+        (e.link?'<a class="tag" href="'+esc(e.link)+'" target="_blank" rel="noopener noreferrer" style="color:var(--'+m.color+');text-decoration:underline">Join</a>':'<span class="tag" style="color:var(--'+m.color+')">'+m.label+'</span>')+
+        '<button class="icon-btn" data-act="meet-edit" data-id="'+e.id+'" aria-label="edit">'+svg(I.edit)+'</button>'+
+        '<button class="icon-btn del" data-act="meet-del" data-id="'+e.id+'" style="margin-left:2px" aria-label="delete">'+svg(I.trash)+'</button></div>';
+    }
+    // Items with a `del` action (scheduled workouts, planned/logged runs) get a
+    // trash button so they can be removed straight from the calendar.
+    if(e.del){
+      return '<div class="day-ev" style="cursor:default"><span class="cal-dot" style="background:var(--'+m.color+')"></span>'+
+        '<button class="day-ev-txt'+(e.done?' done':'')+'" data-act="cal-goto" data-view="'+e.view+'" style="background:none;border:none;text-align:left;padding:0;font:inherit;cursor:pointer">'+esc(e.text)+(e.sub?' <span class="faint">· '+esc(e.sub)+'</span>':'')+'</button>'+
+        '<span class="tag" style="color:var(--'+m.color+')">'+m.label+'</span>'+
+        '<button class="icon-btn del" data-act="'+e.del+'" data-id="'+e.id+'" data-date="'+date+'" style="margin-left:2px" aria-label="remove from calendar">'+svg(I.trash)+'</button></div>';
     }
     return '<button class="day-ev" data-act="cal-goto" data-view="'+e.view+'"><span class="cal-dot" style="background:var(--'+m.color+')"></span>'+
       '<span class="day-ev-txt'+(e.done?' done':'')+'">'+esc(e.text)+(e.sub?' <span class="faint">· '+esc(e.sub)+'</span>':'')+'</span>'+
@@ -1405,21 +1423,22 @@ function openAddEntry(date){
   if(enabled('todo'))typeOpts.push({v:'todo',l:'To-Do'});
   if(projs.length)typeOpts.push({v:'project',l:'Project task'});
   if(wks.length)typeOpts.push({v:'workout',l:'Workout'});
+  typeOpts.push({v:'event',l:'Event'});
   typeOpts.push({v:'meeting',l:'Meeting'});
   if(!typeOpts.length){toast('Turn on To-Do, Projects or Workouts in Settings first');return;}
   const fields=[
-    {key:'text',label:'Title',placeholder:'What\u2019s happening?',showWhen:{key:'type',vals:['todo','project','meeting']}},
+    {key:'text',label:'Title',placeholder:'What\u2019s happening?',showWhen:{key:'type',vals:['todo','project','meeting','event']}},
     {key:'type',label:'Type',type:'select',value:typeOpts[0].v,options:typeOpts,half:true},
     {key:'date',label:'Date',type:'date',value:date,half:true}
   ];
   if(projs.length)fields.push({key:'proj',label:'Project',type:'select',value:projs[0].id,options:projs.map(p=>({v:p.id,l:p.name})),showWhen:{key:'type',vals:['project']}});
   if(wks.length)fields.push({key:'wk',label:'Workout',type:'select',value:wks[0].id,options:wks.map(w=>({v:w.id,l:w.name})),showWhen:{key:'type',vals:['workout']}});
   fields.push({key:'priority',label:'Priority',type:'select',value:'med',options:[{v:'high',l:'High'},{v:'med',l:'Medium'},{v:'low',l:'Low'}],showWhen:{key:'type',vals:['todo']}});
-  fields.push({key:'time',label:'Time',type:'time',half:true,showWhen:{key:'type',vals:['meeting']}});
+  fields.push({key:'time',label:'Time (optional)',type:'time',half:true,showWhen:{key:'type',vals:['meeting','event']}});
   fields.push({key:'link',label:'Meeting link',placeholder:'https://…',half:true,showWhen:{key:'type',vals:['meeting']}});
   openModal({title:'Add to calendar',ok:'Add',fields,onSave(v){
     const dt=v.date||date;
-    if(v.type==='meeting'){if(!v.text)return;S().meetings.push({id:uid(),date:dt,title:v.text,time:v.time||'',link:v.link?normUrl(v.link):''});}
+    if(v.type==='meeting'||v.type==='event'){if(!v.text)return;S().meetings.push({id:uid(),date:dt,title:v.text,time:v.time||'',link:(v.type==='meeting'&&v.link)?normUrl(v.link):'',kind:v.type});}
     else if(v.type==='workout'&&wks.length){const w=S().workouts.find(x=>x.id===v.wk)||wks[0];S().workoutSched.push({id:uid(),date:dt,workoutId:w.id});}
     else if(v.type==='project'&&projs.length){if(!v.text)return;const p=S().projects.find(x=>x.id===v.proj)||projs[0];(p.tasks=p.tasks||[]).push({id:uid(),text:v.text,status:'todo',due:dt});}
     else{if(!v.text)return;S().todos.push({id:uid(),text:v.text,done:false,priority:v.priority||'med',due:dt,created:todayStr()});}
@@ -1432,22 +1451,29 @@ function openAddEntry(date){
 function vTodo(){
   const t=todayStr();
   const all=S().todos, f=ui.todoFilter;
+  const sort=S().settings.todoSort||'smart';
   let list=all.slice();
   if(f==='active')list=list.filter(x=>!x.done);
   if(f==='done')list=list.filter(x=>x.done);
-  // sort: overdue -> due asc -> priority -> created
-  const prioW={high:0,med:1,low:2};
-  list.sort((a,b)=>{
-    if(a.done!==b.done)return a.done?1:-1;
-    const ad=a.due?diffDays(a.due,t):9999, bd=b.due?diffDays(b.due,t):9999;
-    if(ad!==bd)return ad-bd;
-    return (prioW[a.priority]??1)-(prioW[b.priority]??1);
-  });
+  // "smart" = overdue -> due asc -> priority; "custom" = the order you dragged.
+  if(sort==='smart'){
+    const prioW={high:0,med:1,low:2};
+    list.sort((a,b)=>{
+      if(a.done!==b.done)return a.done?1:-1;
+      const ad=a.due?diffDays(a.due,t):9999, bd=b.due?diffDays(b.due,t):9999;
+      if(ad!==bd)return ad-bd;
+      return (prioW[a.priority]??1)-(prioW[b.priority]??1);
+    });
+  }else{
+    list.sort((a,b)=>(a.done?1:0)-(b.done?1:0)); // done sink to the bottom, rest keep list order
+  }
   const doneCt=all.filter(x=>x.done).length;
   const head='<div class="sect-head"><div class="lead"><h2>To-Do</h2><p>Quick, single tasks. Give the important ones a priority or a due date and they surface on your dashboard.</p></div>'+
     '<div class="actions"><div class="chips">'+
       ['active','all','done'].map(x=>'<button class="chip'+(f===x?' on':'')+'" data-act="todo-filter" data-id="'+x+'">'+x[0].toUpperCase()+x.slice(1)+'</button>').join('')+
-    '</div>'+(doneCt?'<button class="btn sm" data-act="todo-clear">Clear done ('+doneCt+')</button>':'')+'</div></div>';
+    '</div><select class="inp" data-change="todo-sort" style="width:auto;flex:none" title="Order tasks by">'+
+      [['smart','Smart order'],['custom','Custom order']].map(o=>'<option value="'+o[0]+'"'+(sort===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+
+    '</select>'+(doneCt?'<button class="btn sm" data-act="todo-clear">Clear done ('+doneCt+')</button>':'')+'</div></div>';
   const add='<div class="card" style="margin-bottom:16px"><div class="addbar">'+
     '<input class="inp" id="td-text" placeholder="Add a task…" data-enter="todo-add">'+
     '<select class="inp" id="td-prio"><option value="med">Priority: Medium</option><option value="high">High</option><option value="low">Low</option></select>'+
@@ -1456,7 +1482,9 @@ function vTodo(){
   const rows=list.length?list.map(x=>{
     const rd=relDue(x.due);
     const pc=x.priority==='high'?pill('High','var(--clay)','var(--clay-bg)'):x.priority==='low'?pill('Low','var(--sage)','var(--sage-bg)'):'';
-    return '<div class="row'+(x.done?' done':'')+'"><button class="chk'+(x.done?' on':'')+'" data-act="todo-toggle" data-id="'+x.id+'">'+svg(I.check)+'</button>'+
+    return '<div class="row'+(x.done?' done':'')+'"'+(sort==='custom'?' data-drag-item data-id="'+x.id+'"':'')+'>'+
+      (sort==='custom'?'<span class="grip" data-grip aria-label="drag to reorder">'+svg(I.grip)+'</span>':'')+
+      '<button class="chk'+(x.done?' on':'')+'" data-act="todo-toggle" data-id="'+x.id+'">'+svg(I.check)+'</button>'+
       '<div class="txt"><div class="t'+(x.done?'':'')+'" style="'+(x.done?'text-decoration:line-through;color:var(--ink-faint)':'')+'">'+esc(x.text)+'</div>'+
       '<div class="sub" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(x.recur?'<span class="recbadge">\u21bb '+recurLabel(x.recur)+'</span>':'')+(x.kind==='maintenance'?'<span class="metachip">Maintenance</span>':'')+metaChips(x)+(x.focusMin?'<button class="metachip" style="cursor:pointer" title="View / edit logged time" data-act="tlog-open" data-kind="todo" data-id="'+x.id+'">'+svg(I.clock)+fmtMin(x.focusMin)+'</button>':'')+(x.goalId&&S().goals.find(g=>g.id===x.goalId)?'<span class="metachip">Goal: '+esc(S().goals.find(g=>g.id===x.goalId).title)+'</span>':'')+'</div></div>'+
       (x.priority==='high'&&!x.done?pill('High','var(--clay)','var(--clay-bg)'):'')+
@@ -1465,7 +1493,8 @@ function vTodo(){
       '<button class="icon-btn" data-act="todo-edit" data-id="'+x.id+'">'+svg(I.edit)+'</button>'+
       '<button class="icon-btn del" data-act="todo-del" data-id="'+x.id+'">'+svg(I.trash)+'</button></div>';
   }).join(''):emptyBox(f==='done'?'No completed tasks yet.':'Your list is clear. Add something above.','todo');
-  return head+add+'<div class="card">'+rows+'</div>';
+  const listWrap=(sort==='custom'&&list.length)?'<div data-draglist data-kind="todos">'+rows+'</div>':rows;
+  return head+add+'<div class="card">'+listWrap+'</div>';
 }
 
 /* ---------- VIEW: GOALS ---------- */
@@ -2154,7 +2183,8 @@ function vRunning(){
   const wk=weekSun(t);
   const wkMi=S().runs.filter(r=>weekSun(r.date)===wk).reduce((a,r)=>a+r.mi,0);
   const totMi=S().runs.reduce((a,r)=>a+r.mi,0),totSec=S().runs.reduce((a,r)=>a+r.sec,0);
-  const head='<div class="sect-head"><div class="lead"><h2>Running</h2><p>Log every run \u2014 miles and time \u2014 and watch your weekly mileage build. Generate a race training plan and it lands straight on your calendar.</p></div></div>';
+  const head='<div class="sect-head"><div class="lead"><h2>Running</h2><p>Log every run \u2014 miles and time \u2014 and watch your weekly mileage build. Generate a race training plan and it lands straight on your calendar.</p></div>'+
+    '<div class="actions"><button class="btn sm" data-act="run-sched">'+svg(I.calendar)+'Schedule runs</button></div></div>';
   const metrics='<div class="card" style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:16px">'+
     '<div class="metric"><span class="n">'+(Math.round(wkMi*10)/10)+'</span><span class="l">Miles this week</span></div>'+
     '<div class="metric"><span class="n">'+(Math.round(totMi*10)/10)+'</span><span class="l">Total miles</span></div>'+
@@ -2902,7 +2932,23 @@ const actions={
   'cal-today'(){ui.calMonth=firstOfMonth(todayStr());ui.calWeek=weekSun(todayStr());render();},
   'cal-day'(el){openDay(el.dataset.date);},
   'cal-add'(el){openAddEntry(el.dataset.date||todayStr());},
-  'meet-del'(el){const i=S().meetings.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const rm=S().meetings[i];S().meetings.splice(i,1);commit();openDay(rm.date);},
+  'meet-del'(el){const i=S().meetings.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const rm=S().meetings[i];S().meetings.splice(i,1);commit();openDay(rm.date);toast((rm.kind==='event'?'Event':'Meeting')+' deleted',()=>{S().meetings.splice(Math.min(i,S().meetings.length),0,rm);commit();openDay(rm.date);});},
+  'meet-edit'(el){
+    const mt=S().meetings.find(x=>x.id===el.dataset.id);if(!mt)return;
+    const isEvent=mt.kind==='event';
+    const fields=[
+      {key:'title',label:'Title',value:mt.title},
+      {key:'date',label:'Date',type:'date',value:mt.date,half:true},
+      {key:'time',label:'Time (optional)',type:'time',value:mt.time||'',half:true}
+    ];
+    if(!isEvent)fields.push({key:'link',label:'Meeting link',value:mt.link||'',placeholder:'https://…'});
+    openModal({title:'Edit '+(isEvent?'event':'meeting'),fields,onSave(v){
+      if(!v.title)return;
+      const old=mt.date;
+      Object.assign(mt,{title:v.title,date:v.date||mt.date,time:v.time||'',link:isEvent?'':(v.link?normUrl(v.link):'')});
+      commit();openDay(mt.date!==old?mt.date:old);
+    }});
+  },
   'cal-goto'(el){closeModal();ui.view=el.dataset.view;render();window.scrollTo(0,0);},
   'cal-open-habits'(el){ui.habitDate=el.dataset.date;closeModal();ui.view='habits';render();window.scrollTo(0,0);},
   'cal-open-macros'(el){ui.macroDate=el.dataset.date;closeModal();ui.view='macros';render();window.scrollTo(0,0);},
@@ -2974,7 +3020,11 @@ const actions={
     {key:'date',label:'First date',type:'date',value:todayStr()},
     {key:'repeat',label:'Repeat',type:'select',value:'1',options:[{v:'1',l:'Just once'},{v:'4',l:'Weekly \u00d7 4'},{v:'8',l:'Weekly \u00d7 8'},{v:'12',l:'Weekly \u00d7 12'}]}
   ],onSave(v){if(!v.date)return;const n=+v.repeat||1;for(let i=0;i<n;i++)S().workoutSched.push({id:uid(),date:addDays(v.date,i*7),workoutId:w.id});commit();toast(n>1?n+' sessions scheduled \u2014 see the calendar':'Scheduled for '+fmtD(v.date));}});},
-  'wsched-del'(el){const i=S().workoutSched.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().workoutSched.splice(i,1);commit();toast('Removed from schedule',()=>{S().workoutSched.splice(Math.min(i,S().workoutSched.length),0,rm);commit();});},
+  'wsched-del'(el){const d=el.dataset.date;const i=S().workoutSched.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().workoutSched.splice(i,1);commit();if(d)openDay(d);toast('Removed from schedule',()=>{S().workoutSched.splice(Math.min(i,S().workoutSched.length),0,rm);commit();if(d)openDay(d);});},
+  // remove a planned run (from a training plan) straight from the calendar
+  'prun-del'(el){const d=el.dataset.date;const plan=S().runPlan||[];const i=plan.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=plan.splice(i,1);commit();if(d)openDay(d);toast('Planned run removed',()=>{plan.splice(Math.min(i,plan.length),0,rm);commit();if(d)openDay(d);});},
+  // remove a logged run from the calendar day view
+  'run-del-day'(el){const d=el.dataset.date;const i=S().runs.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().runs.splice(i,1);commit();if(d)openDay(d);toast('Run deleted',()=>{S().runs.splice(Math.min(i,S().runs.length),0,rm);commit();if(d)openDay(d);});},
   'wk-start'(el){ui.session={workoutId:el.dataset.id,date:todayStr(),sets:[]};ui.view='workouts';render();window.scrollTo(0,0);},
   'set-add'(el){if(!ui.session)return;const ex=el.dataset.ex;const we=document.getElementById('we-'+ex),wr=document.getElementById('wr-'+ex);const w=we&&we.value!==''?+we.value:NaN,r=wr&&wr.value!==''?+wr.value:NaN;if(isNaN(w)||w<0||isNaN(r)||r<=0){toast('Enter a weight and reps first');return;}ui.session.sets.push({exId:ex,w,r});render();},
   'set-pick'(el){if(!ui.session)return;ui.session.pick=ui.session.pick||{};ui.session.pick[el.dataset.slot]=el.dataset.opt;render();},
@@ -3012,6 +3062,22 @@ const actions={
     {key:'time',label:'Time (mm:ss)',value:fmtSec(r.sec),half:true},
     {key:'date',label:'Date',type:'date',value:r.date}
   ],onSave(v){const mi=parseFloat(v.mi);if(!mi||mi<=0){toast('Enter the miles');return;}const sec=parseTimeStr(v.time);if(!sec){toast('Enter the time — like 28:30');return;}r.mi=Math.round(mi*100)/100;r.sec=sec;r.date=v.date||r.date;commit();toast('Run updated');}});},
+  // Schedule a recurring weekly run, same shape as workout scheduling.
+  'run-sched'(){openModal({title:'Schedule runs',ok:'Schedule',fields:[
+    {key:'label',label:'What run?',value:'Easy run',placeholder:'e.g. Easy run, Long run'},
+    {key:'mi',label:'Miles (optional)',type:'number',dec:true,value:'',half:true},
+    {key:'date',label:'First date',type:'date',value:todayStr(),half:true},
+    {key:'repeat',label:'Repeat',type:'select',value:'4',options:[{v:'1',l:'Just once'},{v:'4',l:'Weekly × 4'},{v:'8',l:'Weekly × 8'},{v:'12',l:'Weekly × 12'}]}
+  ],onSave(v){
+    if(!v.date)return;
+    const label=(v.label||'Run').trim()||'Run';
+    const mi=parseFloat(v.mi)||0;
+    const n=+v.repeat||1;
+    S().runPlan=S().runPlan||[];
+    for(let i=0;i<n;i++)S().runPlan.push({id:uid(),date:addDays(v.date,i*7),label:label+(mi?' · '+(Math.round(mi*10)/10)+' mi':''),miles:mi,kind:'easy'});
+    commit();
+    toast(n>1?n+' runs scheduled — see the calendar':'Run scheduled for '+fmtD(v.date));
+  }});},
   'plan-build'(){openModal({title:'Build training plan',ok:'Preview',fields:[
     {key:'date',label:'Race date',type:'date',value:''},
     {key:'dist',label:'Distance',type:'select',value:'marathon',half:true,options:[{v:'marathon',l:'Marathon \u00b7 26.2'},{v:'half',l:'Half marathon \u00b7 13.1'}]},
@@ -3202,9 +3268,10 @@ const actions={
   'win-del'(el){const i=S().wins.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().wins.splice(i,1);commit();toast('Win deleted',()=>{S().wins.splice(Math.min(i,S().wins.length),0,rm);commit();});},
 
   /* today command center */
-  'big3-add'(){const t=getInput('b3-text');if(!t)return;const b=big3Of(todayStr());if(b.items.length>=3){toast('Three is the point \u2014 finish one first');return;}b.items.push({id:uid(),text:t,done:false});commit();},
-  'big3-toggle'(el){const b=big3Of(todayStr());const it=b.items.find(x=>x.id===el.dataset.id);if(!it)return;it.done=!it.done;commit();if(b.items.length&&b.items.every(x=>x.done))toast('\ud83c\udf89 Big 3 complete \u2014 today already counts');},
-  'big3-del'(el){const b=big3Of(todayStr());b.items=b.items.filter(x=>x.id!==el.dataset.id);commit();},
+  'big3-add'(){const t=getInput('b3-text');if(!t)return;const b=big3Of(ui.big3Date||todayStr());if(b.items.length>=3){toast('Three is the point \u2014 finish one first');return;}b.items.push({id:uid(),text:t,done:false});commit();},
+  'big3-toggle'(el){const b=big3Of(ui.big3Date||todayStr());const it=b.items.find(x=>x.id===el.dataset.id);if(!it)return;it.done=!it.done;commit();if(b.items.length&&b.items.every(x=>x.done))toast('\ud83c\udf89 Big 3 complete \u2014 that day already counts');},
+  'big3-del'(el){const b=big3Of(ui.big3Date||todayStr());b.items=b.items.filter(x=>x.id!==el.dataset.id);commit();},
+  'b3date'(el){const d=+el.dataset.id;ui.big3Date=d===0?todayStr():addDays(ui.big3Date||todayStr(),d);render();},
   'ov-capture'(){const t=getInput('ov-cap');if(!t)return;S().inbox.push({id:uid(),text:t,created:todayStr()});commit();toast('Captured to Inbox');},
 
   /* inbox */
@@ -3380,11 +3447,11 @@ const actions={
     openModal({title:'Edit task',fields:[
       {key:'text',label:'Task',value:t.text},
       {key:'due',label:'Due date',type:'date',value:t.due||'',half:true},
-      {key:'area',label:'Life area',type:'select',value:t.area||(p.area||''),half:true,options:areaOpts()},
       {key:'goalId',label:'Parent goal',type:'select',value:t.goalId||(p.goalId||''),half:true,options:goalOpts()},
       {key:'est',label:'Estimated time',type:'select',value:String(t.est||''),half:true,options:selOpts(ESTS)},
-      {key:'energy',label:'Energy',type:'select',value:t.energy||'',options:selOpts(ENERGIES)}
-    ],onSave(v){if(!v.text)return;Object.assign(t,{text:v.text,due:v.due||null,area:v.area||'',goalId:v.goalId||'',est:v.est||'',energy:v.energy||''});commit();}});
+      {key:'energy',label:'Energy',type:'select',value:t.energy||'',half:true,options:selOpts(ENERGIES)}
+    // Life area is inherited from the project — no need to set it per task.
+    ],onSave(v){if(!v.text)return;Object.assign(t,{text:v.text,due:v.due||null,area:p.area||'',goalId:v.goalId||'',est:v.est||'',energy:v.energy||''});commit();}});
   },
   'habit-edit'(el){
     const hb=S().habits.find(x=>x.id===el.dataset.id);if(!hb)return;
@@ -3433,7 +3500,9 @@ const actions={
     ,{key:'goalId',label:'Parent goal',type:'select',value:p.goalId||'',half:true,options:goalOpts()}
     ,{key:'area',label:'Life area',type:'select',value:p.area||'',half:true,options:areaOpts()}
     ,{key:'nextAction',label:'Next action (blank = first open task)',value:p.nextAction||''}
-  ],onSave(v){if(!v.name)return;p.name=v.name;p.color=v.color;p.goalId=v.goalId||'';p.area=v.area||'';p.nextAction=v.nextAction||'';commit();}});},
+  ],onSave(v){if(!v.name)return;p.name=v.name;p.color=v.color;p.goalId=v.goalId||'';p.area=v.area||'';p.nextAction=v.nextAction||'';
+    (p.tasks||[]).forEach(t=>{t.area=p.area||'';}); // tasks inherit the project's area
+    commit();}});},
   'proj-del'(el){const i=S().projects.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().projects.splice(i,1);commit();toast('Project deleted',()=>{S().projects.splice(i,0,rm);commit();});},
   'ptask-add'(el){const p=S().projects.find(x=>x.id===el.dataset.proj);if(!p)return;const inp=document.querySelector('[data-enter="ptask-add"][data-proj="'+el.dataset.proj+'"]');const due=document.querySelector('[data-role="pdue"][data-proj="'+el.dataset.proj+'"]');const t=inp?inp.value.trim():'';if(!t)return;p.tasks.push({id:uid(),text:t,status:'todo',due:due&&due.value?due.value:null,goalId:p.goalId||'',area:p.area||''});commit();},
   'ptask-cycle'(el){const p=S().projects.find(x=>x.id===el.dataset.proj);if(!p)return;const t=p.tasks.find(x=>x.id===el.dataset.id);if(t){t.status=nextStatus(t.status||'todo');if(t.status==='done')ui.peekDone.add(t.id);commit();}},
@@ -3538,11 +3607,12 @@ document.addEventListener('change',e=>{
   if(act==='debt-extra'){S().debtExtra=Math.max(0,+t.value||0);Store.save();render();return;}
   if(act==='vis-field'&&t.dataset.key){const b=visBlock(t.dataset.b);if(b){b[t.dataset.key]=t.value.trim();Store.save();}return;}
   if(act==='vblock-area'){const b=visBlock(t.dataset.b);if(b){b.area=t.value;commit();}return;}
-  if(act==='big3-next'){big3Of(todayStr()).next=t.value.trim();Store.save();return;}
+  if(act==='big3-next'){big3Of(ui.big3Date||todayStr()).next=t.value.trim();Store.save();return;}
   if(act==='rev-field'&&t.dataset.key&&t.dataset.week){const r=S().reviews;if(!r[t.dataset.week])r[t.dataset.week]={};r[t.dataset.week][t.dataset.key]=t.value;Store.save();return;}
   if(act==='nextf'&&t.dataset.k){ui.nextF[t.dataset.k]=t.value;render();return;}
   if(act==='macro-search'){ui.macroSearch=t.value;ui.macroFoodPage=0;render();return;}
   if(act==='goal-sort'){S().settings.goalSort=t.value;commit();return;}
+  if(act==='todo-sort'){S().settings.todoSort=t.value;commit();return;}
   if(act==='gweight'&&t.dataset.k){S().settings.goalWeights[t.dataset.k]=Math.max(0,+t.value||0);commit();return;}
   if(act==='sweight'&&t.dataset.k){S().settings.scoreWeights[t.dataset.k]=Math.max(0,+t.value||0);commit();return;}
   if(act==='focus-field'&&t.dataset.key){const ref=focusTask();if(ref&&ref.t){ref.t[t.dataset.key]=t.value;Store.save();}return;}
@@ -3592,6 +3662,14 @@ function endDrag(){
   }
   if(dragCtx.list.dataset.kind==='goals'){
     S().goals.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
+    dragCtx=null;commit();return;
+  }
+  if(dragCtx.list.dataset.kind==='todos'){
+    // permute only the visible tasks among their slots; filtered-out ones stay put
+    const idSet=new Set(ids);
+    const ordered=ids.map(id=>S().todos.find(x=>x.id===id)).filter(Boolean);
+    let vi=0;
+    S().todos=S().todos.map(x=>idSet.has(x.id)?ordered[vi++]:x);
     dragCtx=null;commit();return;
   }
   if(dragCtx.list.dataset.goalid){
