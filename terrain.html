@@ -1423,23 +1423,29 @@ function openAddEntry(date){
   if(enabled('todo'))typeOpts.push({v:'todo',l:'To-Do'});
   if(projs.length)typeOpts.push({v:'project',l:'Project task'});
   if(wks.length)typeOpts.push({v:'workout',l:'Workout'});
+  if(enabled('running'))typeOpts.push({v:'run',l:'Run'});
+  if(enabled('goals'))typeOpts.push({v:'goal',l:'Goal (target date)'});
   typeOpts.push({v:'event',l:'Event'});
   typeOpts.push({v:'meeting',l:'Meeting'});
   if(!typeOpts.length){toast('Turn on To-Do, Projects or Workouts in Settings first');return;}
   const fields=[
-    {key:'text',label:'Title',placeholder:'What\u2019s happening?',showWhen:{key:'type',vals:['todo','project','meeting','event']}},
+    {key:'text',label:'Title',placeholder:'What\u2019s happening?',showWhen:{key:'type',vals:['todo','project','meeting','event','run','goal']}},
     {key:'type',label:'Type',type:'select',value:typeOpts[0].v,options:typeOpts,half:true},
     {key:'date',label:'Date',type:'date',value:date,half:true}
   ];
   if(projs.length)fields.push({key:'proj',label:'Project',type:'select',value:projs[0].id,options:projs.map(p=>({v:p.id,l:p.name})),showWhen:{key:'type',vals:['project']}});
   if(wks.length)fields.push({key:'wk',label:'Workout',type:'select',value:wks[0].id,options:wks.map(w=>({v:w.id,l:w.name})),showWhen:{key:'type',vals:['workout']}});
   fields.push({key:'priority',label:'Priority',type:'select',value:'med',options:[{v:'high',l:'High'},{v:'med',l:'Medium'},{v:'low',l:'Low'}],showWhen:{key:'type',vals:['todo']}});
+  fields.push({key:'mi',label:'Miles (optional)',type:'number',dec:true,value:'',half:true,showWhen:{key:'type',vals:['run']}});
+  fields.push({key:'area',label:'Life area (optional)',type:'select',value:'',half:true,showWhen:{key:'type',vals:['goal']},options:areaOpts()});
   fields.push({key:'time',label:'Time (optional)',type:'time',half:true,showWhen:{key:'type',vals:['meeting','event']}});
   fields.push({key:'link',label:'Meeting link',placeholder:'https://…',half:true,showWhen:{key:'type',vals:['meeting']}});
   openModal({title:'Add to calendar',ok:'Add',fields,onSave(v){
     const dt=v.date||date;
     if(v.type==='meeting'||v.type==='event'){if(!v.text)return;S().meetings.push({id:uid(),date:dt,title:v.text,time:v.time||'',link:(v.type==='meeting'&&v.link)?normUrl(v.link):'',kind:v.type});}
     else if(v.type==='workout'&&wks.length){const w=S().workouts.find(x=>x.id===v.wk)||wks[0];S().workoutSched.push({id:uid(),date:dt,workoutId:w.id});}
+    else if(v.type==='run'){const mi=parseFloat(v.mi)||0;const label=(v.text||'Run').trim()||'Run';S().runPlan=S().runPlan||[];S().runPlan.push({id:uid(),date:dt,label:label+(mi?' · '+(Math.round(mi*10)/10)+' mi':''),miles:mi,kind:'easy'});}
+    else if(v.type==='goal'){if(!v.text)return;S().goals.push({id:uid(),title:v.text,target:dt,why:'',steps:[],area:v.area||'',created:todayStr()});}
     else if(v.type==='project'&&projs.length){if(!v.text)return;const p=S().projects.find(x=>x.id===v.proj)||projs[0];(p.tasks=p.tasks||[]).push({id:uid(),text:v.text,status:'todo',due:dt});}
     else{if(!v.text)return;S().todos.push({id:uid(),text:v.text,done:false,priority:v.priority||'med',due:dt,created:todayStr()});}
     ui.calMonth=firstOfMonth(dt);
