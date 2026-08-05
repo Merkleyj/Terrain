@@ -422,6 +422,7 @@ details.expl p{font-size:11.5px;color:var(--ink-soft);margin:8px 0 0;line-height
 .mobmore-item.on{background:var(--sage-bg);color:var(--sage)}
 .mobmore-item.on>svg,.mobmore-item.on .mobmore-chev{color:var(--sage)}
 .mobmore-item:active{background:var(--surface-2)}
+a.mobmore-item{text-decoration:none;box-sizing:border-box}
 body.mobmore-lock{overflow:hidden}
 /* quick-log floating action button (mobile only) */
 #qa-fab{display:none;position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom,0px));z-index:45;width:54px;height:54px;border-radius:50%;border:none;background:var(--sage);color:#fff;box-shadow:0 8px 22px -6px rgba(44,42,36,.5);align-items:center;justify-content:center;cursor:pointer;transition:transform .12s}
@@ -949,7 +950,14 @@ function qaHtml(){
   if(ui.qaMode==='reading'){
     // only what you're actually in the middle of
     const rs=(S().reading||[]).filter(r=>r.status==='reading');
-    const inner=rs.length?rs.map(r=>qaRow('qa-read-pick','reading',esc(r.title)+(r.author?' <span class="faint">· '+esc(r.author)+'</span>':''),' data-id="'+r.id+'"')).join('')
+    const inner=rs.length?rs.map(r=>{
+      const label=esc(r.title)+'<span class="faint"> · '+(r.link?esc(urlHost(r.link)):esc(r.author||rTypeLabel(r.type)))+'</span>';
+      // With a link, tap opens it (Audible/Spotify/etc). Without one, fall back
+      // to the item's notes so the row still does something useful.
+      return r.link
+        ? '<a class="mobmore-item qa-link" href="'+esc(r.link)+'" target="_blank" rel="noopener noreferrer">'+svg(I.reading)+'<span>'+label+'</span>'+svg(I.chevR,'mobmore-chev')+'</a>'
+        : qaRow('qa-read-pick','reading',label,' data-id="'+r.id+'"');
+    }).join('')
       :'<p class="faint" style="font-size:13px;padding:10px">Nothing in progress. Mark a book or podcast “In progress” to see it here. <button class="btn sm" data-act="qa-goto" data-id="reading">Go to Reading</button></p>';
     return qaSheetWrap('Reading / listening now',true,inner);
   }
@@ -966,6 +974,9 @@ function qaHtml(){
   return qaSheetWrap('Quick log',false,inner);
 }
 function qaRerender(){const el=document.getElementById('qa-sheet');if(el)el.innerHTML=qaHtml();}
+// Quick-action rows that are real links bypass the [data-act] dispatcher
+// (it ignores anchors), so close the sheet behind them here.
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('a.qa-link'))closeQa();});
 function openQa(){closeMore();ui.qaMode='main';ui.qaOpen=true;const el=document.getElementById('qa-sheet');if(el){el.innerHTML=qaHtml();el.classList.add('open');}document.body.classList.add('mobmore-lock');}
 function closeQa(){ui.qaOpen=false;const el=document.getElementById('qa-sheet');if(el)el.classList.remove('open');document.body.classList.remove('mobmore-lock');}
 /* ---------- TV dashboard mode (glanceable, non-interactive, no scroll) ---------- */
