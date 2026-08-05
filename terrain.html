@@ -145,6 +145,13 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 
 /* List rows */
 .row{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line)}
+/* To-Do: colour spine by life area + group headings */
+.td-spine{width:4px;align-self:stretch;border-radius:20px;flex:none;margin:2px 0;background:var(--line)}
+.td-group{display:flex;align-items:center;gap:8px;margin:16px 0 2px;padding-top:12px;border-top:1px solid var(--line)}
+.td-group:first-child{margin-top:2px;padding-top:0;border-top:none}
+.td-group .td-dot{width:9px;height:9px;border-radius:3px;flex:none}
+.td-group h4{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);font-weight:700;margin:0}
+.td-group .td-ct{margin-left:auto;font-size:11.5px;color:var(--ink-faint);font-family:var(--mono)}
 .row:last-child{border-bottom:none}
 .row .txt{flex:1;min-width:0}
 .row .txt .t{font-weight:500;word-break:break-word}
@@ -1158,11 +1165,17 @@ const CATCOLOR={Travel:'sage',Experience:'clay',Event:'wheat',Growth:'sage',Othe
 function catVar(c){return 'var(--'+(CATCOLOR[c]||'stone')+')';}
 const GPAL=['sage','clay','wheat','plum','pine','stone'];
 const AREACOL={career:'clay',health:'sage',finance:'pine',relationships:'plum',growth:'sage',home:'wheat',adventure:'clay',recreation:'wheat'};
+// Colour for a life-area id — known areas get a fixed colour, custom ones a
+// stable colour derived from their name so it never shifts between renders.
+function areaColorName(areaId){
+  if(!areaId)return '';
+  if(AREACOL[areaId])return AREACOL[areaId];
+  let h=0;for(let i=0;i<areaId.length;i++)h=(h*31+areaId.charCodeAt(i))>>>0;
+  return GPAL[h%GPAL.length];
+}
 function goalColorName(g){
   if(!g||!g.area)return 'sage';
-  if(AREACOL[g.area])return AREACOL[g.area];
-  let h=0;for(let i=0;i<g.area.length;i++)h=(h*31+g.area.charCodeAt(i))>>>0;
-  return GPAL[h%GPAL.length];
+  return areaColorName(g.area);
 }
 function pill(txt,color,bg){return '<span class="pill" style="color:'+color+';background:'+bg+'">'+esc(txt)+'</span>';}
 
@@ -1512,11 +1525,14 @@ function vTodo(){
   }else{
     list.sort((a,b)=>(a.done?1:0)-(b.done?1:0)); // done sink to the bottom, rest keep list order
   }
+  const group=S().settings.todoGroup||'none';
   const doneCt=all.filter(x=>x.done).length;
   const head='<div class="sect-head"><div class="lead"><h2>To-Do</h2><p>Quick, single tasks. Give the important ones a priority or a due date and they surface on your dashboard.</p></div>'+
     '<div class="actions"><div class="chips">'+
       ['active','all','done'].map(x=>'<button class="chip'+(f===x?' on':'')+'" data-act="todo-filter" data-id="'+x+'">'+x[0].toUpperCase()+x.slice(1)+'</button>').join('')+
-    '</div><select class="inp" data-change="todo-sort" style="width:auto;flex:none" title="Order tasks by">'+
+    '</div><select class="inp" data-change="todo-group" style="width:auto;flex:none" title="Group tasks by">'+
+      [['none','No grouping'],['area','Group: Life area'],['goal','Group: Goal'],['project','Group: Project']].map(o=>'<option value="'+o[0]+'"'+(group===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+
+    '</select><select class="inp" data-change="todo-sort" style="width:auto;flex:none" title="Order tasks by">'+
       [['smart','Smart order'],['custom','Custom order']].map(o=>'<option value="'+o[0]+'"'+(sort===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+
     '</select>'+(doneCt?'<button class="btn sm" data-act="todo-clear">Clear done ('+doneCt+')</button>':'')+'</div></div>';
   const add='<div class="card" style="margin-bottom:16px"><div class="addbar">'+
@@ -1524,22 +1540,53 @@ function vTodo(){
     '<select class="inp" id="td-prio"><option value="med">Priority: Medium</option><option value="high">High</option><option value="low">Low</option></select>'+
     '<input class="inp" id="td-due" type="date">'+
     '<button class="btn primary" data-act="todo-add">'+svg(I.plus)+'Add</button></div></div>';
-  const rows=list.length?list.map(x=>{
-    const rd=relDue(x.due);
-    const pc=x.priority==='high'?pill('High','var(--clay)','var(--clay-bg)'):x.priority==='low'?pill('Low','var(--sage)','var(--sage-bg)'):'';
+  const rowHtml=x=>{
+    const proj=x.projectId?S().projects.find(p=>p.id===x.projectId):null;
+    const goal=x.goalId?S().goals.find(g=>g.id===x.goalId):null;
+    // Colour spine: life area first (the common denominator), else the linked
+    // project's colour, so every task reads as belonging somewhere.
+    const spine=areaColorName(x.area)||(proj&&proj.color)||'';
     return '<div class="row'+(x.done?' done':'')+'"'+(sort==='custom'?' data-drag-item data-id="'+x.id+'"':'')+'>'+
       (sort==='custom'?'<span class="grip" data-grip aria-label="drag to reorder">'+svg(I.grip)+'</span>':'')+
+      '<span class="td-spine"'+(spine&&!x.done?' style="background:var(--'+spine+')"':'')+'></span>'+
       '<button class="chk'+(x.done?' on':'')+'" data-act="todo-toggle" data-id="'+x.id+'">'+svg(I.check)+'</button>'+
-      '<div class="txt"><div class="t'+(x.done?'':'')+'" style="'+(x.done?'text-decoration:line-through;color:var(--ink-faint)':'')+'">'+esc(x.text)+'</div>'+
-      '<div class="sub" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(x.recur?'<span class="recbadge">\u21bb '+recurLabel(x.recur)+'</span>':'')+(x.kind==='maintenance'?'<span class="metachip">Maintenance</span>':'')+metaChips(x)+(x.focusMin?'<button class="metachip" style="cursor:pointer" title="View / edit logged time" data-act="tlog-open" data-kind="todo" data-id="'+x.id+'">'+svg(I.clock)+fmtMin(x.focusMin)+'</button>':'')+(x.goalId&&S().goals.find(g=>g.id===x.goalId)?'<span class="metachip">Goal: '+esc(S().goals.find(g=>g.id===x.goalId).title)+'</span>':'')+'</div></div>'+
+      '<div class="txt"><div class="t" style="'+(x.done?'text-decoration:line-through;color:var(--ink-faint)':'')+'">'+esc(x.text)+'</div>'+
+      '<div class="sub" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(x.recur?'<span class="recbadge">\u21bb '+recurLabel(x.recur)+'</span>':'')+(x.kind==='maintenance'?'<span class="metachip">Maintenance</span>':'')+metaChips(x)+(x.focusMin?'<button class="metachip" style="cursor:pointer" title="View / edit logged time" data-act="tlog-open" data-kind="todo" data-id="'+x.id+'">'+svg(I.clock)+fmtMin(x.focusMin)+'</button>':'')+
+        (proj&&group!=='project'?'<span class="metachip">'+esc(proj.name)+'</span>':'')+
+        (goal&&group!=='goal'?'<span class="metachip">Goal: '+esc(goal.title)+'</span>':'')+'</div></div>'+
       (x.priority==='high'&&!x.done?pill('High','var(--clay)','var(--clay-bg)'):'')+
       ((()=>{const rd=relDue(x.due);return rd&&!x.done?'<span class="tag" style="color:'+(rd.cls==='over'?'var(--clay)':'var(--ink-soft)')+'">'+rd.txt+'</span>':'';})())+
       (!x.done?focusBtn('todo',x.id):'')+
       '<button class="icon-btn" data-act="todo-edit" data-id="'+x.id+'">'+svg(I.edit)+'</button>'+
       '<button class="icon-btn del" data-act="todo-del" data-id="'+x.id+'">'+svg(I.trash)+'</button></div>';
-  }).join(''):emptyBox(f==='done'?'No completed tasks yet.':'Your list is clear. Add something above.','todo');
-  const listWrap=(sort==='custom'&&list.length)?'<div data-draglist data-kind="todos">'+rows+'</div>':rows;
-  return head+add+'<div class="card">'+listWrap+'</div>';
+  };
+  const wrapDrag=inner=>(sort==='custom')?'<div data-draglist data-kind="todos">'+inner+'</div>':inner;
+  let body;
+  if(!list.length){
+    body=emptyBox(f==='done'?'No completed tasks yet.':'Your list is clear. Add something above.','todo');
+  }else if(group==='none'){
+    body=wrapDrag(list.map(rowHtml).join(''));
+  }else{
+    // Build the group order from the app's own ordering, then an "unassigned"
+    // bucket last so nothing is hidden.
+    const meta=group==='area'
+      ?{ids:visAreas().map(a=>a.id),label:id=>areaName(id),color:id=>areaColorName(id),none:'No life area',key:x=>x.area||''}
+      :group==='goal'
+      ?{ids:S().goals.map(g=>g.id),label:id=>{const g=S().goals.find(x=>x.id===id);return g?g.title:'';},color:id=>{const g=S().goals.find(x=>x.id===id);return goalColorName(g);},none:'No goal',key:x=>x.goalId||''}
+      :{ids:S().projects.map(p=>p.id),label:id=>{const p=S().projects.find(x=>x.id===id);return p?p.name:'';},color:id=>{const p=S().projects.find(x=>x.id===id);return (p&&p.color)||'stone';},none:'No project',key:x=>x.projectId||''};
+    const buckets=new Map();
+    meta.ids.forEach(id=>buckets.set(id,[]));
+    list.forEach(x=>{const k=meta.key(x);if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(x);});
+    const sections=[];
+    [...buckets.entries()].forEach(([id,items])=>{
+      if(!items.length||!id)return;
+      sections.push('<div class="td-group"><span class="td-dot" style="background:var(--'+(meta.color(id)||'stone')+')"></span><h4>'+esc(meta.label(id)||'Untitled')+'</h4><span class="td-ct">'+items.length+'</span></div>'+wrapDrag(items.map(rowHtml).join('')));
+    });
+    const orphans=buckets.get('')||[];
+    if(orphans.length)sections.push('<div class="td-group"><span class="td-dot" style="background:var(--line)"></span><h4>'+meta.none+'</h4><span class="td-ct">'+orphans.length+'</span></div>'+wrapDrag(orphans.map(rowHtml).join('')));
+    body=sections.join('');
+  }
+  return head+add+'<div class="card">'+body+'</div>';
 }
 
 /* ---------- VIEW: GOALS ---------- */
@@ -3685,6 +3732,7 @@ document.addEventListener('change',e=>{
   if(act==='macro-search'){ui.macroSearch=t.value;ui.macroFoodPage=0;render();return;}
   if(act==='goal-sort'){S().settings.goalSort=t.value;commit();return;}
   if(act==='todo-sort'){S().settings.todoSort=t.value;commit();return;}
+  if(act==='todo-group'){S().settings.todoGroup=t.value;commit();return;}
   if(act==='gweight'&&t.dataset.k){S().settings.goalWeights[t.dataset.k]=Math.max(0,+t.value||0);commit();return;}
   if(act==='sweight'&&t.dataset.k){S().settings.scoreWeights[t.dataset.k]=Math.max(0,+t.value||0);commit();return;}
   if(act==='focus-field'&&t.dataset.key){const ref=focusTask();if(ref&&ref.t){ref.t[t.dataset.key]=t.value;Store.save();}return;}
