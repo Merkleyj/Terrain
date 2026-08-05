@@ -946,12 +946,20 @@ function qaHtml(){
       :'<p class="faint" style="font-size:13px;padding:10px">No skills yet. <button class="btn sm" data-act="qa-goto" data-id="skills">Go to Skills</button></p>';
     return qaSheetWrap('Start a skill timer',true,inner);
   }
+  if(ui.qaMode==='reading'){
+    // only what you're actually in the middle of
+    const rs=(S().reading||[]).filter(r=>r.status==='reading');
+    const inner=rs.length?rs.map(r=>qaRow('qa-read-pick','reading',esc(r.title)+(r.author?' <span class="faint">· '+esc(r.author)+'</span>':''),' data-id="'+r.id+'"')).join('')
+      :'<p class="faint" style="font-size:13px;padding:10px">Nothing in progress. Mark a book or podcast “In progress” to see it here. <button class="btn sm" data-act="qa-goto" data-id="reading">Go to Reading</button></p>';
+    return qaSheetWrap('Reading / listening now',true,inner);
+  }
   // Only show actions whose tab is turned on in Settings.
   const rows=[];
   if(enabled('running'))rows.push(qaRow('qa-run','route','Log a run'));
   if(enabled('macros'))rows.push(qaRow('qa-food','macros','Log food'));
   if(enabled('workouts'))rows.push(qaRow('qa-mode','dumbbell','Log a workout',' data-id="workouts"'));
   if(enabled('sleep'))rows.push(qaRow('qa-sleep','moon','Log sleep'));
+  if(enabled('reading'))rows.push(qaRow('qa-mode','reading','Read / listen',' data-id="reading"'));
   if(enabled('inbox'))rows.push(qaRow('qa-inbox','inboxI','Jot to Inbox'));
   if(enabled('skills'))rows.push(qaRow('qa-mode','bulb','Start a skill timer',' data-id="skills"'));
   const inner=rows.length?rows.join(''):'<p class="faint" style="font-size:13px;padding:12px 10px">No quick actions — turn on tabs like Sleep or Running in Settings.</p>';
@@ -2935,6 +2943,8 @@ const actions={
   'qa-goto'(el){ui.view=el.dataset.id;closeQa();render();window.scrollTo(0,0);},
   'qa-wk-pick'(el){const id=el.dataset.id;closeQa();ui.session={workoutId:id,date:todayStr(),sets:[]};ui.view='workouts';render();window.scrollTo(0,0);},
   'qa-sk-pick'(el){const id=el.dataset.id;closeQa();ui.view='skills';startSkTimer(id);window.scrollTo(0,0);toast('Timer started');},
+  // open the book/podcast straight to its notes so you can capture a thought
+  'qa-read-pick'(el){const id=el.dataset.id;closeQa();ui.view='reading';render();window.scrollTo(0,0);ui.rvEdit=null;ui.rvOpen=new Set();openReadView(id,true);},
   'qa-run'(){closeQa();openModal({title:'Log a run',ok:'Save',fields:[
     {key:'mi',label:'Miles',type:'number',dec:true,placeholder:'3.1',half:true},
     {key:'time',label:'Time (mm:ss)',placeholder:'28:30',half:true},
