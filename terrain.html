@@ -1560,8 +1560,6 @@ function metaChips(t){
   let out='';
   if(t.area&&areaName(t.area))out+='<span class="metachip">'+esc(areaName(t.area))+'</span>';
   if(t.est)out+='<span class="metachip">'+lbl(ESTS,String(t.est))+'</span>';
-  if(t.energy)out+='<span class="metachip">'+lbl(ENERGIES,t.energy)+' energy</span>';
-  if(t.ctx)out+='<span class="metachip">'+lbl(CTXS,t.ctx)+'</span>';
   return out;
 }
 function goalCalc(g){
@@ -1801,15 +1799,13 @@ function vNext(){
   const f=ui.nextF;
   let items=nextPool();
   if(f.area)items=items.filter(x=>x.area===f.area||(x.n.task&&x.n.task.area===f.area));
-  if(f.energy)items=items.filter(x=>x.n.task&&x.n.task.energy===f.energy);
   if(f.est)items=items.filter(x=>x.n.task&&String(x.n.task.est)===f.est);
-  if(f.ctx)items=items.filter(x=>x.n.task&&x.n.task.ctx===f.ctx);
   items.sort((a,b)=>((a.n.task&&a.n.task.due)||'9999')<((b.n.task&&b.n.task.due)||'9999')?-1:1);
-  const head='<div class="sect-head"><div class="lead"><h2>Next Actions</h2><p>One actionable step per active goal and project \u2014 the shortest honest answer to \u201cwhat should I work on?\u201d Filter by what you have: time, energy, place.</p></div></div>';
+  const head='<div class="sect-head"><div class="lead"><h2>Next Actions</h2><p>One actionable step per active goal and project \u2014 the shortest honest answer to \u201cwhat should I work on?\u201d Filter by life area or the time you have.</p></div></div>';
   const sel=(k,list,label)=>'<select class="inp" data-change="nextf" data-k="'+k+'" style="flex:none;min-width:110px"><option value="">'+label+': any</option>'+list.map(o=>'<option value="'+o[0]+'"'+(f[k]===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
   const filters='<div class="card" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
-    sel('area',visAreas().map(a=>[a.id,a.name]),'Area')+sel('energy',ENERGIES,'Energy')+sel('est',ESTS,'Time')+sel('ctx',CTXS,'Context')+
-    ((f.area||f.energy||f.est||f.ctx)?'<button class="btn sm" data-act="nextf-clear">Clear</button>':'')+'</div>';
+    sel('area',visAreas().map(a=>[a.id,a.name]),'Area')+sel('est',ESTS,'Time')+
+    ((f.area||f.est)?'<button class="btn sm" data-act="nextf-clear">Clear</button>':'')+'</div>';
   const rows=items.length?items.map(x=>{
     const t=x.n.task,rd=t&&t.due?relDue(t.due):null;
     return '<div class="row" style="padding:10px 2px">'+
@@ -2889,9 +2885,13 @@ document.addEventListener('paste',e=>{
 });
 
 /* ---------- MODAL ---------- */
-let modalSave=null;
+let modalSave=null,modalChange=null;
+// Set another field's value from inside an onChange hook (used for cascades
+// like project → goal → life area).
+function setModalField(key,val){const e=document.querySelector('#modal-root [data-k="'+key+'"]');if(e&&val!=null&&e.value!==val)e.value=val;}
 function openModal(opts){
   modalSave=opts.onSave;
+  modalChange=opts.onChange||null;
   const fields=opts.fields.map(fl=>{
     let inp;
     if(fl.type==='rich')inp=richEditor(fl.key,fl.value||'',fl.placeholder);
@@ -2912,7 +2912,7 @@ function openModal(opts){
   applyModalConds();
   const first=$('#modal-root .inp');if(first)setTimeout(()=>first.focus(),40);
 }
-function closeModal(){$('#modal-root').innerHTML='';modalSave=null;}
+function closeModal(){$('#modal-root').innerHTML='';modalSave=null;modalChange=null;}
 function collectModal(){const vals={};document.querySelectorAll('#modal-root [data-k]').forEach(e=>{if(e.classList.contains('daypick'))vals[e.dataset.k]=[...e.querySelectorAll('.daychip.on')].map(c=>+c.dataset.d);else if(e.hasAttribute('data-rte'))vals[e.dataset.k]=sanitizeRich(e.innerHTML);else vals[e.dataset.k]=e.value.trim();});return vals;}
 // show/hide modal fields tagged with showWhen based on a controlling field's value
 function applyModalConds(){
@@ -2922,7 +2922,12 @@ function applyModalConds(){
   });
   document.querySelectorAll('#modal-root .field-row').forEach(row=>{const fs=[...row.querySelectorAll('.field')];row.style.display=(fs.length&&fs.every(f=>f.style.display==='none'))?'none':'';});
 }
-document.addEventListener('change',e=>{if(e.target.closest('#modal-root [data-k]'))applyModalConds();});
+document.addEventListener('change',e=>{
+  const f=e.target.closest('#modal-root [data-k]');
+  if(!f)return;
+  applyModalConds();
+  if(modalChange){try{modalChange(f.dataset.k,f.value);}catch(_){}}
+});
 
 /* ---------- TOAST / UNDO ---------- */
 let toastT,lastUndo=null;
@@ -3460,17 +3465,36 @@ const actions={
   'todo-edit'(el){
     const t=S().todos.find(x=>x.id===el.dataset.id);if(!t)return;
     const r=t.recur||{};
-    openModal({title:'Edit task',fields:[
+    // Ordered widest-to-narrowest: the task, then where it lives
+    // (project → goal → life area), then scheduling, then the rest.
+    openModal({title:'Edit task',
+      onChange(key,val){
+        // Picking a project fills in its goal and life area; picking a goal
+        // fills in its life area. Anything already set is overwritten so the
+        // hierarchy stays consistent — you can still change them by hand after.
+        if(key==='projectId'&&val){
+          const p=S().projects.find(x=>x.id===val);
+          if(p){
+            if(p.goalId)setModalField('goalId',p.goalId);
+            const g=p.goalId?S().goals.find(x=>x.id===p.goalId):null;
+            const area=p.area||(g&&g.area)||'';
+            if(area)setModalField('area',area);
+          }
+        }
+        if(key==='goalId'&&val){
+          const g=S().goals.find(x=>x.id===val);
+          if(g&&g.area)setModalField('area',g.area);
+        }
+      },
+      fields:[
       {key:'text',label:'Task',value:t.text},
+      {key:'projectId',label:'Parent project',type:'select',value:t.projectId||'',half:true,options:projOpts()},
+      {key:'goalId',label:'Parent goal',type:'select',value:t.goalId||'',half:true,options:goalOpts()},
+      {key:'area',label:'Life area',type:'select',value:t.area||'',half:true,options:areaOpts()},
       {key:'priority',label:'Priority',type:'select',value:t.priority||'med',half:true,options:[{v:'high',l:'High'},{v:'med',l:'Medium'},{v:'low',l:'Low'}]},
       {key:'due',label:'Due date',type:'date',value:t.due||'',half:true},
-      {key:'area',label:'Life area',type:'select',value:t.area||'',half:true,options:areaOpts()},
-      {key:'goalId',label:'Parent goal',type:'select',value:t.goalId||'',half:true,options:goalOpts()},
-      {key:'projectId',label:'Parent project (link only)',type:'select',value:t.projectId||'',half:true,options:projOpts()},
       {key:'kind',label:'Type',type:'select',value:t.kind||'progress',half:true,options:[{v:'progress',l:'Progress'},{v:'maintenance',l:'Maintenance'}]},
-      {key:'ctx',label:'Context',type:'select',value:t.ctx||'',half:true,options:selOpts(CTXS)},
       {key:'est',label:'Estimated time',type:'select',value:String(t.est||''),half:true,options:selOpts(ESTS)},
-      {key:'energy',label:'Energy',type:'select',value:t.energy||'',half:true,options:selOpts(ENERGIES)},
       {key:'rf',label:'Repeats',type:'select',value:r.f||'',half:true,options:[noneOpt,{v:'daily',l:'Daily'},{v:'weekdays',l:'Weekdays'},{v:'weekly',l:'Weekly'},{v:'days',l:'Chosen weekdays'},{v:'monthly',l:'Monthly'},{v:'yearly',l:'Yearly'},{v:'int',l:'Every N days'},{v:'after',l:'N days after done'}]},
       {key:'rn',label:'N (for every-N options)',type:'number',value:r.n||'',half:true},
       {key:'rdays',label:'Weekdays (e.g. Mon, Wed, Fri)',value:(r.days||[]).map(d=>['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ')},
@@ -3480,7 +3504,7 @@ const actions={
     ],onSave(v){
       if(!v.text)return;
       if(v.due&&t.due&&v.due>t.due)t.postpones=(t.postpones||0)+1;
-      Object.assign(t,{text:v.text,priority:v.priority,due:v.due||null,area:v.area||'',goalId:v.goalId||'',projectId:v.projectId||'',kind:v.kind||'progress',ctx:v.ctx||'',est:v.est||'',energy:v.energy||''});
+      Object.assign(t,{text:v.text,priority:v.priority,due:v.due||null,area:v.area||'',goalId:v.goalId||'',projectId:v.projectId||'',kind:v.kind||'progress',est:v.est||''});
       if(v.rf){
         const DN={sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};
         const days=(v.rdays||'').toLowerCase().split(/[^a-z]+/).map(x=>DN[x.slice(0,3)]).filter(x=>x!=null);
@@ -3497,10 +3521,9 @@ const actions={
       {key:'text',label:'Task',value:t.text},
       {key:'due',label:'Due date',type:'date',value:t.due||'',half:true},
       {key:'goalId',label:'Parent goal',type:'select',value:t.goalId||(p.goalId||''),half:true,options:goalOpts()},
-      {key:'est',label:'Estimated time',type:'select',value:String(t.est||''),half:true,options:selOpts(ESTS)},
-      {key:'energy',label:'Energy',type:'select',value:t.energy||'',half:true,options:selOpts(ENERGIES)}
+      {key:'est',label:'Estimated time',type:'select',value:String(t.est||''),half:true,options:selOpts(ESTS)}
     // Life area is inherited from the project — no need to set it per task.
-    ],onSave(v){if(!v.text)return;Object.assign(t,{text:v.text,due:v.due||null,area:p.area||'',goalId:v.goalId||'',est:v.est||'',energy:v.energy||''});commit();}});
+    ],onSave(v){if(!v.text)return;Object.assign(t,{text:v.text,due:v.due||null,area:p.area||'',goalId:v.goalId||'',est:v.est||''});commit();}});
   },
   'habit-edit'(el){
     const hb=S().habits.find(x=>x.id===el.dataset.id);if(!hb)return;
