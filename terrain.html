@@ -1354,8 +1354,8 @@ function dayEvents(date){
     logged.forEach(l=>{
       const m=sched.find(s=>s.workoutId===l.workoutId&&!usedSched.has(s.id))||sched.find(s=>!usedSched.has(s.id));
       if(m)usedSched.add(m.id);
-      const sets=(l.sets||[]).length, vol=(l.sets||[]).reduce((a,x)=>a+x.w*x.r,0);
-      out.push({src:'workout',id:l.id,text:(l.workoutName||wkName(l.workoutId))+' · '+sets+' set'+(sets===1?'':'s')+(vol?' · '+vol.toLocaleString():''),done:true,del:'wlog-del-day'});
+      const sets=(l.sets||[]).length, nEx=exCount(l.sets);
+      out.push({src:'workout',id:l.id,text:(l.workoutName||wkName(l.workoutId))+' · '+sets+' set'+(sets===1?'':'s')+(nEx?' · '+nEx+' ex':''),done:true,del:'wlog-del-day'});
     });
     sched.filter(s=>!usedSched.has(s.id)).forEach(s=>out.push({src:'workout',id:s.id,text:wkName(s.workoutId),done:false,del:'wsched-del'}));
   }
@@ -2153,10 +2153,34 @@ function lastExSets(exId){
   for(const l of logs){const s=(l.sets||[]).filter(x=>x.exId===exId);if(s.length)return{date:l.date,sets:s};}
   return null;
 }
+/* Progress is measured PER EXERCISE, never by adding weight across exercises.
+   A machine's plate stack, a cable's pulley ratio and a barbell's pounds are
+   not the same unit, and bodyweight work (dips, pull-ups) would score zero.
+   So the weekly chart counts SETS — a set is a set whatever the load — and
+   personal bests only ever compare an exercise against itself. */
+function setRank(st){
+  // Weighted sets rank by estimated 1-rep max (Epley), so 185×5 beats 155×8.
+  // Bodyweight sets rank by reps. Adding load always outranks bodyweight.
+  return st.w>0?[1,st.w*(1+st.r/30)]:[0,st.r];
+}
+function cmpSet(a,b){const x=setRank(a),y=setRank(b);return x[0]!==y[0]?x[0]-y[0]:x[1]-y[1];}
+function setLabel(st){return st.w>0?st.w+' × '+st.r:st.r+' rep'+(st.r===1?'':'s');}
+function exBests(){
+  const logs=S().workoutLog.slice().sort((a,b)=>a.date<b.date?-1:1);   // oldest first
+  const m=new Map();
+  logs.forEach(l=>(l.sets||[]).forEach(st=>{
+    const k=st.exName||'Exercise';
+    let e=m.get(k);if(!e){e={name:k,best:null,date:'',prev:null,sets:0};m.set(k,e);}
+    e.sets++;
+    if(!e.best||cmpSet(st,e.best)>0){e.prev=e.best;e.best={w:st.w,r:st.r};e.date=l.date;}
+  }));
+  return [...m.values()].filter(e=>e.best);
+}
+function exCount(sets){return new Set((sets||[]).map(x=>x.exName||x.exId)).size;}
 function vWorkouts(){
   if(ui.session)return vSession();
   const ws=S().workouts,t=todayStr();
-  const head='<div class="sect-head"><div class="lead"><h2>Workouts</h2><p>Build workout templates, then log sessions against them \u2014 weight \u00d7 reps for every set. Schedule sessions and they land on your calendar.</p></div>'+
+  const head='<div class="sect-head"><div class="lead"><h2>Workouts</h2><p>Build workout templates, then log sessions against them, set by set. Schedule sessions and they land on your calendar.</p></div>'+
     '<div class="actions"><button class="btn primary" data-act="wk-add">'+svg(I.plus)+'New workout</button></div></div>';
   const cards=ws.length?ws.map(w=>{
     const exItems=(w.exercises||[]).map(ex=>{
@@ -2186,27 +2210,39 @@ function vWorkouts(){
   }).join(''):'<p class="faint" style="font-size:13px;margin:2px 0">Nothing scheduled \u2014 use a workout\u2019s Schedule button, or add one from the calendar.</p>';
   const logs=S().workoutLog.slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,10);
   const histHtml=logs.length?logs.map(l=>{
-    const vol=(l.sets||[]).reduce((a,x)=>a+x.w*x.r,0);
-    return '<button class="day-ev" data-act="wlog-view" data-id="'+l.id+'"><span class="cal-dot" style="background:var(--plum)"></span><span class="day-ev-txt">'+esc(l.workoutName)+' <span class="faint">\u00b7 '+fmtD(l.date)+'</span></span><span class="mono faint" style="font-size:11.5px">'+(l.sets||[]).length+' sets \u00b7 '+vol.toLocaleString()+'</span></button>';
+    const nEx=exCount(l.sets);
+    return '<button class="day-ev" data-act="wlog-view" data-id="'+l.id+'"><span class="cal-dot" style="background:var(--plum)"></span><span class="day-ev-txt">'+esc(l.workoutName)+' <span class="faint">\u00b7 '+fmtD(l.date)+'</span></span><span class="mono faint" style="font-size:11.5px">'+(l.sets||[]).length+' sets \u00b7 '+nEx+' ex</span></button>';
   }).join(''):emptyBox('No sessions logged yet.','dumbbell');
-  // Training volume (weight \u00d7 reps summed per week) \u2014 the progress-over-time view.
-  let volCard='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Training volume</h3></div><p class="faint" style="font-size:13px;margin:0">Log your first session and this chart starts tracking your weekly volume (weight \u00d7 reps) \u2014 watch it climb week over week.</p></div>';
+  // Sets per week \u2014 the one workload number that means the same thing for a
+  // barbell, a cable stack and a set of pull-ups (see setRank above).
+  let progCard='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Sets per week</h3></div><p class="faint" style="font-size:13px;margin:0">Log your first session and this chart starts tracking how many working sets you put in each week.</p></div>';
   if(S().workoutLog.length){
-    const wkNow=weekSun(t);let maxV=0;const vw=[];
+    const wkNow=weekSun(t);let maxS=0;const sw=[];
     for(let i=7;i>=0;i--){
       const wsd=addDays(wkNow,-7*i);
       const wlogs=S().workoutLog.filter(l=>weekSun(l.date)===wsd);
-      const vol=wlogs.reduce((a,l)=>a+(l.sets||[]).reduce((x,st)=>x+st.w*st.r,0),0);
-      vw.push({ws:wsd,vol,n:wlogs.length});maxV=Math.max(maxV,vol);
+      const n=wlogs.reduce((a,l)=>a+(l.sets||[]).length,0);
+      sw.push({ws:wsd,n,ses:wlogs.length});maxS=Math.max(maxS,n);
     }
-    const cw=vw[7],pw=vw[6];
-    const trend=(pw.vol>0&&cw.vol>0&&pw.vol!==cw.vol)?'<span class="tag" style="color:'+(cw.vol>pw.vol?'var(--sage)':'var(--clay)')+'">'+(cw.vol>pw.vol?'\u25b2 +':'\u25bc ')+Math.abs(Math.round((cw.vol-pw.vol)/pw.vol*100))+'% wk</span>':'';
-    const vBars=vw.map(x=>'<div class="wkcol" title="Week of '+fmtD(x.ws)+' \u00b7 '+x.n+' session'+(x.n===1?'':'s')+' \u00b7 '+x.vol.toLocaleString()+' volume"><div class="wkbar" style="height:'+(maxV?Math.max(3,x.vol/maxV*100):3)+'%;background:var(--plum)'+(x.ws===wkNow?'':';opacity:.45')+'"></div></div>').join('');
-    const vLabels=vw.map(x=>{const d=parseD(x.ws);return '<span>'+(d.getMonth()+1)+'/'+d.getDate()+'</span>';}).join('');
-    volCard='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Training volume</h3>'+trend+'<span class="spacer mono faint" style="font-size:12px">8 weeks</span></div><div class="wkchart">'+vBars+'</div><div class="wklabels">'+vLabels+'</div><p class="faint" style="font-size:11.5px;margin:8px 0 0">Volume = weight \u00d7 reps across every set you logged that week.</p></div>';
+    const cw=sw[7],pw=sw[6];
+    const trend=(pw.n>0&&cw.n>0&&pw.n!==cw.n)?'<span class="tag" style="color:'+(cw.n>pw.n?'var(--sage)':'var(--clay)')+'">'+(cw.n>pw.n?'\u25b2 +':'\u25bc ')+Math.abs(Math.round((cw.n-pw.n)/pw.n*100))+'% wk</span>':'';
+    const sBars=sw.map(x=>'<div class="wkcol" title="Week of '+fmtD(x.ws)+' \u00b7 '+x.ses+' session'+(x.ses===1?'':'s')+' \u00b7 '+x.n+' set'+(x.n===1?'':'s')+'"><div class="wkbar" style="height:'+(maxS?Math.max(3,x.n/maxS*100):3)+'%;background:var(--plum)'+(x.ws===wkNow?'':';opacity:.45')+'"></div></div>').join('');
+    const sLabels=sw.map(x=>{const d=parseD(x.ws);return '<span>'+(d.getMonth()+1)+'/'+d.getDate()+'</span>';}).join('');
+    progCard='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Sets per week</h3>'+trend+'<span class="spacer mono faint" style="font-size:12px">8 weeks</span></div><div class="wkchart">'+sBars+'</div><div class="wklabels">'+sLabels+'</div><p class="faint" style="font-size:11.5px;margin:8px 0 0">Every working set counts once \u2014 barbell, machine or bodyweight.</p></div>';
   }
+  // Personal bests \u2014 each exercise compared only against itself, newest first.
+  const bests=exBests().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+  const prCut=addDays(t,-21);
+  const bestRows=bests.slice(0,8).map(e=>
+    '<div class="row" style="padding:7px 2px"><div class="txt"><div class="t" style="font-size:13.5px">'+esc(e.name)+'</div>'+
+    '<div class="sub">'+fmtD(e.date)+(e.prev?' \u00b7 was '+setLabel(e.prev):'')+'</div></div>'+
+    (e.date>=prCut?'<span class="tag" style="color:var(--sage)">PR</span>':'')+
+    '<span class="mono" style="font-size:13px;font-weight:600">'+setLabel(e.best)+'</span></div>').join('');
+  const prCard='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Personal bests</h3><span class="spacer mono faint" style="font-size:12px">'+bests.length+' exercise'+(bests.length===1?'':'s')+'</span></div>'+
+    (bestRows||'<p class="faint" style="font-size:13px;margin:0">Your best set for each exercise shows up here once you\u2019ve logged a session.</p>')+
+    '<p class="faint" style="font-size:11.5px;margin:8px 0 0">Weighted moves rank by estimated 1-rep max, so 185\u00d75 beats 155\u00d78. Bodyweight moves rank by reps.</p></div>';
   return head+'<div class="grid g2 split"><div>'+cards+'</div>'+
-    '<div>'+volCard+'<div class="card"><div class="card-h"><h3>Scheduled</h3></div>'+schedHtml+'</div>'+
+    '<div>'+progCard+prCard+'<div class="card"><div class="card-h"><h3>Scheduled</h3></div>'+schedHtml+'</div>'+
     '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Recent sessions</h3></div>'+histHtml+'</div></div></div>';
 }
 function vSession(){
@@ -2217,8 +2253,8 @@ function vSession(){
     const cur=s.sets.filter(x=>x.exId===id);
     const last=lastExSets(id);
     const pf=cur.length?cur[cur.length-1]:(last?last.sets[last.sets.length-1]:null);
-    const chips=cur.map(st=>'<span class="setchip">'+st.w+' \u00d7 '+st.r+'<button data-act="set-rm" data-i="'+s.sets.indexOf(st)+'" aria-label="remove set">\u2715</button></span>').join('');
-    const lastHtml=last?'<div class="faint" style="font-size:11.5px;margin-top:3px">Last time ('+fmtD(last.date)+'): '+last.sets.map(x=>x.w+'\u00d7'+x.r).join(', ')+'</div>':'';
+    const chips=cur.map(st=>'<span class="setchip">'+setLabel(st)+'<button data-act="set-rm" data-i="'+s.sets.indexOf(st)+'" aria-label="remove set">\u2715</button></span>').join('');
+    const lastHtml=last?'<div class="faint" style="font-size:11.5px;margin-top:3px">Last time ('+fmtD(last.date)+'): '+last.sets.map(setLabel).join(', ')+'</div>':'';
     return '<div class="wex">'+titleHtml+(pickerHtml||'')+lastHtml+
       (chips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">'+chips+'</div>':'')+
       '<div class="set-inputs"><input class="inp" type="number" inputmode="decimal" placeholder="Weight" id="we-'+id+'" value="'+(pf?pf.w:'')+'"><span class="faint">\u00d7</span><input class="inp" type="number" inputmode="numeric" placeholder="Reps" id="wr-'+id+'" value="'+(pf?pf.r:'')+'" data-enter="set-add" data-ex="'+id+'"><button class="btn sm" data-act="set-add" data-ex="'+id+'">'+svg(I.plus)+'Set</button></div></div>';
@@ -2234,11 +2270,11 @@ function vSession(){
     html+=(ex.supers||[]).map(sp=>logBlock(sp.id,'<div style="font-weight:600;font-size:14px">'+esc(sp.name)+' <span class="tag" style="color:var(--plum)">superset \u00b7 '+esc(po.name)+'</span></div>')).join('');
     return html;
   }).join('');
-  const total=s.sets.length,vol=s.sets.reduce((a,x)=>a+x.w*x.r,0);
-  return '<div class="sect-head"><div class="lead"><h2>Log session</h2><p>'+esc(w.name)+' \u2014 add each set as you go. Nothing is stored until you hit Finish &amp; save.</p></div>'+
+  const total=s.sets.length,nEx=exCount(s.sets);
+  return '<div class="sect-head"><div class="lead"><h2>Log session</h2><p>'+esc(w.name)+' \u2014 add each set as you go. Leave Weight blank for bodyweight moves. Nothing is stored until you hit Finish &amp; save.</p></div>'+
     '<div class="actions"><input class="inp" type="date" data-change="session-date" value="'+s.date+'" max="'+todayStr()+'" style="width:auto"></div></div>'+
     '<div class="card">'+(blocks||emptyBox('This workout has no exercises yet. Discard, add some, then start again.','dumbbell'))+'</div>'+
-    '<div class="card" style="margin-top:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap"><div class="metric"><span class="n" style="font-size:24px">'+total+'</span><span class="l">Sets</span></div><div class="metric"><span class="n" style="font-size:24px">'+vol.toLocaleString()+'</span><span class="l">Volume</span></div><div style="margin-left:auto;display:flex;gap:9px"><button class="btn ghost" data-act="session-cancel">Discard</button><button class="btn primary" data-act="session-save">Finish &amp; save</button></div></div>';
+    '<div class="card" style="margin-top:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap"><div class="metric"><span class="n" style="font-size:24px">'+total+'</span><span class="l">Sets</span></div><div class="metric"><span class="n" style="font-size:24px">'+nEx+'</span><span class="l">Exercises</span></div><div style="margin-left:auto;display:flex;gap:9px"><button class="btn ghost" data-act="session-cancel">Discard</button><button class="btn primary" data-act="session-save">Finish &amp; save</button></div></div>';
 }
 
 /* ---------- VIEW: RUNNING ---------- */
@@ -3140,7 +3176,9 @@ const actions={
   // remove a logged run from the calendar day view
   'run-del-day'(el){const d=el.dataset.date;const i=S().runs.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().runs.splice(i,1);commit();if(d)openDay(d);toast('Run deleted',()=>{S().runs.splice(Math.min(i,S().runs.length),0,rm);commit();if(d)openDay(d);});},
   'wk-start'(el){ui.session={workoutId:el.dataset.id,date:todayStr(),sets:[]};ui.view='workouts';render();window.scrollTo(0,0);},
-  'set-add'(el){if(!ui.session)return;const ex=el.dataset.ex;const we=document.getElementById('we-'+ex),wr=document.getElementById('wr-'+ex);const w=we&&we.value!==''?+we.value:NaN,r=wr&&wr.value!==''?+wr.value:NaN;if(isNaN(w)||w<0||isNaN(r)||r<=0){toast('Enter a weight and reps first');return;}ui.session.sets.push({exId:ex,w,r});render();},
+  // Leaving Weight blank logs a bodyweight set (dips, pull-ups, push-ups) —
+  // reps are the only thing required.
+  'set-add'(el){if(!ui.session)return;const ex=el.dataset.ex;const we=document.getElementById('we-'+ex),wr=document.getElementById('wr-'+ex);const w=we&&we.value!==''?+we.value:0,r=wr&&wr.value!==''?+wr.value:NaN;if(isNaN(w)||w<0||isNaN(r)||r<=0){toast('Enter your reps first');return;}ui.session.sets.push({exId:ex,w,r});render();},
   'set-pick'(el){if(!ui.session)return;ui.session.pick=ui.session.pick||{};ui.session.pick[el.dataset.slot]=el.dataset.opt;render();},
   'set-rm'(el){if(!ui.session)return;ui.session.sets.splice(+el.dataset.i,1);render();},
   'session-cancel'(){ui.session=null;render();},
@@ -3155,9 +3193,9 @@ const actions={
   'wlog-view'(el){
     const l=S().workoutLog.find(x=>x.id===el.dataset.id);if(!l)return;
     const by={};(l.sets||[]).forEach(st=>{(by[st.exName]=by[st.exName]||[]).push(st);});
-    const vol=(l.sets||[]).reduce((a,x)=>a+x.w*x.r,0);
-    const body=Object.keys(by).map(name=>'<div class="wex" style="padding:10px 2px"><div style="font-weight:600;font-size:13.5px;margin-bottom:7px">'+esc(name)+'</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+by[name].map(st=>'<span class="setchip">'+st.w+' \u00d7 '+st.r+'</span>').join('')+'</div></div>').join('');
-    $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal"><div class="modal-h"><h3>'+esc(l.workoutName)+'</h3><div class="faint" style="font-size:12.5px;margin-top:2px">'+fmtDL(l.date)+' \u00b7 '+(l.sets||[]).length+' sets \u00b7 '+vol.toLocaleString()+' volume</div></div><div class="modal-b">'+body+'</div><div class="modal-f"><button class="btn ghost" data-act="wlog-del" data-id="'+l.id+'">'+svg(I.trash)+'Delete</button><button class="btn primary" data-act="modal-cancel">Close</button></div></div></div>';
+    const nEx=exCount(l.sets);
+    const body=Object.keys(by).map(name=>'<div class="wex" style="padding:10px 2px"><div style="font-weight:600;font-size:13.5px;margin-bottom:7px">'+esc(name)+'</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+by[name].map(st=>'<span class="setchip">'+setLabel(st)+'</span>').join('')+'</div></div>').join('');
+    $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal"><div class="modal-h"><h3>'+esc(l.workoutName)+'</h3><div class="faint" style="font-size:12.5px;margin-top:2px">'+fmtDL(l.date)+' \u00b7 '+(l.sets||[]).length+' sets \u00b7 '+nEx+' exercise'+(nEx===1?'':'s')+'</div></div><div class="modal-b">'+body+'</div><div class="modal-f"><button class="btn ghost" data-act="wlog-del" data-id="'+l.id+'">'+svg(I.trash)+'Delete</button><button class="btn primary" data-act="modal-cancel">Close</button></div></div></div>';
   },
   'wlog-del'(el){closeModal();const i=S().workoutLog.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().workoutLog.splice(i,1);commit();toast('Session deleted',()=>{S().workoutLog.splice(Math.min(i,S().workoutLog.length),0,rm);commit();});},
 
