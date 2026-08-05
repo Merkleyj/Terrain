@@ -1303,12 +1303,32 @@ function dayEvents(date){
   if(enabled('todo'))S().todos.forEach(t=>{if(t.due===date)out.push({src:'todo',id:t.id,text:t.text,done:!!t.done});});
   if(enabled('goals'))S().goals.forEach(g=>{if(g.target===date)out.push({src:'goal',id:g.id,text:g.title,done:goalPct(g)>=100});});
   if(enabled('projects'))S().projects.forEach(p=>(p.tasks||[]).forEach(t=>{if(t.due===date)out.push({src:'project',id:t.id,text:t.text,done:t.status==='done',sub:p.name});}));
-  if(enabled('workouts'))S().workoutSched.forEach(s=>{if(s.date===date)out.push({src:'workout',id:s.id,text:wkName(s.workoutId),done:S().workoutLog.some(l=>l.date===date&&l.workoutId===s.workoutId),del:'wsched-del'});});
+  if(enabled('workouts')){
+    // Same rule as runs: a logged session takes over the row for a workout
+    // scheduled that day, showing the real sets/volume. Sessions you logged
+    // without scheduling still show; unfulfilled schedules stay as planned.
+    const logged=S().workoutLog.filter(l=>l.date===date);
+    const sched=S().workoutSched.filter(s=>s.date===date);
+    const usedSched=new Set();
+    logged.forEach(l=>{
+      const m=sched.find(s=>s.workoutId===l.workoutId&&!usedSched.has(s.id))||sched.find(s=>!usedSched.has(s.id));
+      if(m)usedSched.add(m.id);
+      const sets=(l.sets||[]).length, vol=(l.sets||[]).reduce((a,x)=>a+x.w*x.r,0);
+      out.push({src:'workout',id:l.id,text:(l.workoutName||wkName(l.workoutId))+' · '+sets+' set'+(sets===1?'':'s')+(vol?' · '+vol.toLocaleString():''),done:true,del:'wlog-del-day'});
+    });
+    sched.filter(s=>!usedSched.has(s.id)).forEach(s=>out.push({src:'workout',id:s.id,text:wkName(s.workoutId),done:false,del:'wsched-del'}));
+  }
   if(enabled('running')){
-    const ran=S().runs.some(r=>r.date===date);
-    let planned=false;
-    (S().runPlan||[]).forEach(p=>{if(p.date===date){planned=true;out.push({src:'run',id:p.id,text:p.label,done:ran,del:'prun-del'});}});
-    if(!planned)S().runs.forEach(r=>{if(r.date===date)out.push({src:'run',id:r.id,text:(Math.round(r.mi*10)/10)+' mi run · '+fmtSec(r.sec),done:true,del:'run-del-day'});});
+    // A logged run takes over the row for a run planned that day: show the real
+    // distance/time, with the plan it fulfilled as the subtitle. Extra plans
+    // that weren't run yet still show as planned.
+    const logged=S().runs.filter(r=>r.date===date);
+    const plans=(S().runPlan||[]).filter(p=>p.date===date);
+    logged.forEach((r,i)=>{
+      const p=plans[i];
+      out.push({src:'run',id:r.id,text:(Math.round(r.mi*10)/10)+' mi run · '+fmtSec(r.sec),sub:p?p.label:'',done:true,del:'run-del-day'});
+    });
+    plans.slice(logged.length).forEach(p=>out.push({src:'run',id:p.id,text:p.label,done:false,del:'prun-del'}));
   }
   if(enabled('bills'))S().bills.forEach(b=>{if(billOccurs(b,date))out.push({src:'finance',id:b.id,text:b.name+' \u00b7 '+money(b.amt),done:(b.paidLog||[]).includes(date),view:'bills'});});
   if(enabled('savings'))S().savings.forEach(g=>{if(g.targetDate===date){const sv=(g.contribs||[]).reduce((a,c)=>a+(+c.amt||0),0);out.push({src:'finance',id:g.id,text:'Savings goal: '+g.name,done:sv>=(+g.target||0),view:'savings'});}});
@@ -3029,6 +3049,8 @@ const actions={
   'wsched-del'(el){const d=el.dataset.date;const i=S().workoutSched.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().workoutSched.splice(i,1);commit();if(d)openDay(d);toast('Removed from schedule',()=>{S().workoutSched.splice(Math.min(i,S().workoutSched.length),0,rm);commit();if(d)openDay(d);});},
   // remove a planned run (from a training plan) straight from the calendar
   'prun-del'(el){const d=el.dataset.date;const plan=S().runPlan||[];const i=plan.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=plan.splice(i,1);commit();if(d)openDay(d);toast('Planned run removed',()=>{plan.splice(Math.min(i,plan.length),0,rm);commit();if(d)openDay(d);});},
+  // remove a logged workout session from the calendar day view
+  'wlog-del-day'(el){const d=el.dataset.date;const i=S().workoutLog.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().workoutLog.splice(i,1);commit();if(d)openDay(d);toast('Session deleted',()=>{S().workoutLog.splice(Math.min(i,S().workoutLog.length),0,rm);commit();if(d)openDay(d);});},
   // remove a logged run from the calendar day view
   'run-del-day'(el){const d=el.dataset.date;const i=S().runs.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().runs.splice(i,1);commit();if(d)openDay(d);toast('Run deleted',()=>{S().runs.splice(Math.min(i,S().runs.length),0,rm);commit();if(d)openDay(d);});},
   'wk-start'(el){ui.session={workoutId:el.dataset.id,date:todayStr(),sets:[]};ui.view='workouts';render();window.scrollTo(0,0);},
