@@ -2270,11 +2270,21 @@ function vSession(){
     html+=(ex.supers||[]).map(sp=>logBlock(sp.id,'<div style="font-weight:600;font-size:14px">'+esc(sp.name)+' <span class="tag" style="color:var(--plum)">superset \u00b7 '+esc(po.name)+'</span></div>')).join('');
     return html;
   }).join('');
+  // Sets whose exercise is no longer in the template (renamed or deleted since
+  // the session was logged) still need to be visible and editable when you
+  // reopen an old session \u2014 otherwise they'd be stuck and uneditable.
+  const known=new Set();
+  (w.exercises||[]).forEach(e=>{known.add(e.id);(e.alts||[]).forEach(a=>known.add(a.id));(e.supers||[]).forEach(sp=>known.add(sp.id));});
+  const orphans=[...new Set(s.sets.filter(x=>!known.has(x.exId)).map(x=>x.exId))].map(id=>{
+    const nm=(s.sets.find(x=>x.exId===id)||{}).exName||'Exercise';
+    return logBlock(id,'<div style="font-weight:600;font-size:14px">'+esc(nm)+' <span class="tag">not in template</span></div>');
+  }).join('');
+  const ed=!!s.editId;
   const total=s.sets.length,nEx=exCount(s.sets);
-  return '<div class="sect-head"><div class="lead"><h2>Log session</h2><p>'+esc(w.name)+' \u2014 add each set as you go. Leave Weight blank for bodyweight moves. Nothing is stored until you hit Finish &amp; save.</p></div>'+
+  return '<div class="sect-head"><div class="lead"><h2>'+(ed?'Edit session':'Log session')+'</h2><p>'+esc(w.name)+' \u2014 '+(ed?'change any set, or the date, then save. ':'add each set as you go. ')+'Leave Weight blank for bodyweight moves.'+(ed?' Discard leaves the saved session untouched.':' Nothing is stored until you hit Finish &amp; save.')+'</p></div>'+
     '<div class="actions"><input class="inp" type="date" data-change="session-date" value="'+s.date+'" max="'+todayStr()+'" style="width:auto"></div></div>'+
-    '<div class="card">'+(blocks||emptyBox('This workout has no exercises yet. Discard, add some, then start again.','dumbbell'))+'</div>'+
-    '<div class="card" style="margin-top:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap"><div class="metric"><span class="n" style="font-size:24px">'+total+'</span><span class="l">Sets</span></div><div class="metric"><span class="n" style="font-size:24px">'+nEx+'</span><span class="l">Exercises</span></div><div style="margin-left:auto;display:flex;gap:9px"><button class="btn ghost" data-act="session-cancel">Discard</button><button class="btn primary" data-act="session-save">Finish &amp; save</button></div></div>';
+    '<div class="card">'+((blocks+orphans)||emptyBox('This workout has no exercises yet. Discard, add some, then start again.','dumbbell'))+'</div>'+
+    '<div class="card" style="margin-top:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap"><div class="metric"><span class="n" style="font-size:24px">'+total+'</span><span class="l">Sets</span></div><div class="metric"><span class="n" style="font-size:24px">'+nEx+'</span><span class="l">Exercises</span></div><div style="margin-left:auto;display:flex;gap:9px"><button class="btn ghost" data-act="session-cancel">Discard</button><button class="btn primary" data-act="session-save">'+(ed?'Save changes':'Finish &amp; save')+'</button></div></div>';
 }
 
 /* ---------- VIEW: RUNNING ---------- */
@@ -3186,16 +3196,37 @@ const actions={
     const s=ui.session;if(!s)return;
     if(!s.sets.length){toast('Add at least one set first');return;}
     const w=S().workouts.find(x=>x.id===s.workoutId);
-    const exName=id=>{if(!w)return'Exercise';for(const e of (w.exercises||[])){if(e.id===id)return e.name;for(const a of (e.alts||[]))if(a.id===id)return a.name;for(const sp of (e.supers||[]))if(sp.id===id)return sp.name;}return'Exercise';};
-    S().workoutLog.push({id:uid(),date:s.date||todayStr(),workoutId:s.workoutId,workoutName:w?w.name:'Workout',sets:s.sets.map(x=>({exId:x.exId,exName:exName(x.exId),w:x.w,r:x.r}))});
+    const exName=id=>{if(w)for(const e of (w.exercises||[])){if(e.id===id)return e.name;for(const a of (e.alts||[]))if(a.id===id)return a.name;for(const sp of (e.supers||[]))if(sp.id===id)return sp.name;}return'';};
+    // Keep the name a set was logged under if the template no longer has that
+    // exercise, so editing an old session doesn't relabel it "Exercise".
+    const rows=s.sets.map(x=>({exId:x.exId,exName:exName(x.exId)||x.exName||'Exercise',w:x.w,r:x.r}));
+    if(s.editId){
+      const l=S().workoutLog.find(x=>x.id===s.editId);
+      if(!l){ui.session=null;render();toast('That session no longer exists');return;}
+      l.date=s.date||todayStr();l.sets=rows;
+      ui.session=null;commit();toast('Session updated');return;
+    }
+    S().workoutLog.push({id:uid(),date:s.date||todayStr(),workoutId:s.workoutId,workoutName:w?w.name:'Workout',sets:rows});
     ui.session=null;commit();toast('Session saved');
+  },
+  // Reopen a logged session in the same logger used to record it, so fixing a
+  // set works exactly like entering it the first time.
+  'wlog-edit'(el){
+    closeModal();
+    const l=S().workoutLog.find(x=>x.id===el.dataset.id);if(!l)return;
+    const w=S().workouts.find(x=>x.id===l.workoutId);
+    if(!w){toast('That workout template was deleted — this session can’t be reopened');return;}
+    const pick={};   // preselect whichever alternative was actually performed
+    (w.exercises||[]).forEach(e=>{const a=(e.alts||[]).find(a=>(l.sets||[]).some(st=>st.exId===a.id));if(a)pick[e.id]=a.id;});
+    ui.session={workoutId:l.workoutId,date:l.date,sets:(l.sets||[]).map(x=>({exId:x.exId,exName:x.exName,w:x.w,r:x.r})),pick,editId:l.id};
+    ui.view='workouts';render();window.scrollTo(0,0);
   },
   'wlog-view'(el){
     const l=S().workoutLog.find(x=>x.id===el.dataset.id);if(!l)return;
     const by={};(l.sets||[]).forEach(st=>{(by[st.exName]=by[st.exName]||[]).push(st);});
     const nEx=exCount(l.sets);
     const body=Object.keys(by).map(name=>'<div class="wex" style="padding:10px 2px"><div style="font-weight:600;font-size:13.5px;margin-bottom:7px">'+esc(name)+'</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+by[name].map(st=>'<span class="setchip">'+setLabel(st)+'</span>').join('')+'</div></div>').join('');
-    $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal"><div class="modal-h"><h3>'+esc(l.workoutName)+'</h3><div class="faint" style="font-size:12.5px;margin-top:2px">'+fmtDL(l.date)+' \u00b7 '+(l.sets||[]).length+' sets \u00b7 '+nEx+' exercise'+(nEx===1?'':'s')+'</div></div><div class="modal-b">'+body+'</div><div class="modal-f"><button class="btn ghost" data-act="wlog-del" data-id="'+l.id+'">'+svg(I.trash)+'Delete</button><button class="btn primary" data-act="modal-cancel">Close</button></div></div></div>';
+    $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal"><div class="modal-h"><h3>'+esc(l.workoutName)+'</h3><div class="faint" style="font-size:12.5px;margin-top:2px">'+fmtDL(l.date)+' \u00b7 '+(l.sets||[]).length+' sets \u00b7 '+nEx+' exercise'+(nEx===1?'':'s')+'</div></div><div class="modal-b">'+body+'</div><div class="modal-f"><button class="btn ghost" data-act="wlog-del" data-id="'+l.id+'">'+svg(I.trash)+'Delete</button><button class="btn" data-act="wlog-edit" data-id="'+l.id+'">'+svg(I.edit)+'Edit</button><button class="btn primary" data-act="modal-cancel">Close</button></div></div></div>';
   },
   'wlog-del'(el){closeModal();const i=S().workoutLog.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().workoutLog.splice(i,1);commit();toast('Session deleted',()=>{S().workoutLog.splice(Math.min(i,S().workoutLog.length),0,rm);commit();});},
 
