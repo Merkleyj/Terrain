@@ -724,6 +724,10 @@ const Store={
     if(!s.v)s.v=1;
     ['todos','goals','projects','habits','bucket','reading','journal','workouts','workoutLog','workoutSched','runs','runPlan','assets','debts','nwSnaps','budgetCats','spend','savings','bills','wins','sleepLog','skills','inbox','meetings'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[];});
     s.goals.forEach(g=>{delete g.nextAction;}); // next action is now always automatic (first open step)
+    // A project task's goal and life area always come from its project — the
+    // project is what's linked to the goal, so per-task overrides would only
+    // let a task drift onto a goal its own project isn't working toward.
+    s.projects.forEach(p=>(p.tasks||[]).forEach(t=>{t.goalId=p.goalId||'';t.area=p.area||'';}));
     if(!s.big3||typeof s.big3!=='object')s.big3={};
     if(!s.goalHist||typeof s.goalHist!=='object')s.goalHist={};
     ['focusLog','savedFoods','savedMeals'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[];});
@@ -3649,10 +3653,9 @@ const actions={
     openModal({title:'Edit task',fields:[
       {key:'text',label:'Task',value:t.text},
       {key:'due',label:'Due date',type:'date',value:t.due||'',half:true},
-      {key:'goalId',label:'Parent goal',type:'select',value:t.goalId||(p.goalId||''),half:true,options:goalOpts()},
       {key:'est',label:'Estimated time',type:'select',value:String(t.est||''),half:true,options:selOpts(ESTS)}
-    // Life area is inherited from the project — no need to set it per task.
-    ],onSave(v){if(!v.text)return;Object.assign(t,{text:v.text,due:v.due||null,area:p.area||'',goalId:v.goalId||'',est:v.est||''});commit();}});
+    // Parent goal and life area are inherited from the project — set them there.
+    ],onSave(v){if(!v.text)return;Object.assign(t,{text:v.text,due:v.due||null,area:p.area||'',goalId:p.goalId||'',est:v.est||''});commit();}});
   },
   'habit-edit'(el){
     const hb=S().habits.find(x=>x.id===el.dataset.id);if(!hb)return;
@@ -3702,7 +3705,7 @@ const actions={
     ,{key:'area',label:'Life area',type:'select',value:p.area||'',half:true,options:areaOpts()}
     ,{key:'nextAction',label:'Next action (blank = first open task)',value:p.nextAction||''}
   ],onSave(v){if(!v.name)return;p.name=v.name;p.color=v.color;p.goalId=v.goalId||'';p.area=v.area||'';p.nextAction=v.nextAction||'';
-    (p.tasks||[]).forEach(t=>{t.area=p.area||'';}); // tasks inherit the project's area
+    (p.tasks||[]).forEach(t=>{t.area=p.area||'';t.goalId=p.goalId||'';}); // tasks inherit the project's goal + area
     commit();}});},
   'proj-del'(el){const i=S().projects.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().projects.splice(i,1);commit();toast('Project deleted',()=>{S().projects.splice(i,0,rm);commit();});},
   'ptask-add'(el){const p=S().projects.find(x=>x.id===el.dataset.proj);if(!p)return;const inp=document.querySelector('[data-enter="ptask-add"][data-proj="'+el.dataset.proj+'"]');const due=document.querySelector('[data-role="pdue"][data-proj="'+el.dataset.proj+'"]');const t=inp?inp.value.trim():'';if(!t)return;p.tasks.push({id:uid(),text:t,status:'todo',due:due&&due.value?due.value:null,goalId:p.goalId||'',area:p.area||''});commit();},
