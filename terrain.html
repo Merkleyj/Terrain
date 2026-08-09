@@ -776,7 +776,7 @@ const Store={
     if(!s.macroGoals)s.macroGoals={cal:2200,p:170,c:220,f:70};
     if(!s.settings||typeof s.settings!=='object')s.settings={};
     if(typeof s.settings.name!=='string')s.settings.name='';
-    if(typeof s.settings.hideDone!=='boolean')s.settings.hideDone=false;
+    delete s.settings.hideDone;   // completed tasks now hide per project, like goal steps
     if(!Array.isArray(s.settings.pinned))s.settings.pinned=[];
     if(typeof s.settings.lastBackup!=='string')s.settings.lastBackup='';
     if(!s.settings.goalWeights)s.settings.goalWeights={steps:30,projects:40,tasks:30};
@@ -827,7 +827,7 @@ function enabled(id){
 
 /* ---------- transient ui state ---------- */
 const ui={view:'overview',moreOpen:false,qaOpen:false,qaMode:'main',tv:false,tvClock:null,habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
-  calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',macroFoodPage:0,rvOpen:new Set(),rvEdit:null,goalOpen:new Set(),goalShowDone:new Set(),big3Date:todayStr(),focus:null,fTimer:null,skTimer:null,skTick:null,
+  calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',macroFoodPage:0,rvOpen:new Set(),rvEdit:null,goalOpen:new Set(),goalShowDone:new Set(),projOpen:new Set(),projShowDone:new Set(),big3Date:todayStr(),focus:null,fTimer:null,skTimer:null,skTick:null,
   todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all'};
 
 /* ---------- computed ---------- */
@@ -1941,11 +1941,18 @@ function vGoals(){
 const PSTATUS=[['todo','To Do','stone'],['progress','In Progress','clay'],['review','Review','wheat'],['done','Done','sage']];
 const PSMAP=Object.fromEntries(PSTATUS.map(s=>[s[0],s]));
 function nextStatus(s){const i=PSTATUS.findIndex(x=>x[0]===s);return PSTATUS[(i+1)%PSTATUS.length][0];}
+// Sort key for "Due soonest": a project is as urgent as its nearest open task.
+function projNextDue(p){
+  const ds=(p.tasks||[]).filter(t=>t.status!=='done'&&t.due).map(t=>t.due).sort();
+  return ds[0]||'9999-12-31';
+}
 function vProjects(){
-  const ps=S().projects;
-  const hide=!!S().settings.hideDone;
+  const sort=S().settings.projSort||'custom';
   const head='<div class="sect-head"><div class="lead"><h2>Projects</h2><p>Multi-step efforts with moving parts. Tap a status to advance it — To&nbsp;Do → In&nbsp;Progress → Review → Done.</p></div>'+
-    '<div class="actions"><button class="chip'+(hide?' on':'')+'" data-act="proj-hidedone">'+(hide?'Show completed':'Hide completed')+'</button><button class="btn primary" data-act="proj-add">'+svg(I.plus)+'New project</button></div></div>';
+    '<div class="actions"><select class="inp" data-change="proj-sort" style="width:auto;flex:none" title="Order projects by">'+[['custom','Custom order'],['added','Date added'],['due','Due soonest']].map(o=>'<option value="'+o[0]+'"'+(sort===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select><button class="btn primary" data-act="proj-add">'+svg(I.plus)+'New project</button></div></div>';
+  let ps=S().projects.slice();
+  if(sort==='added')ps.sort((a,b)=>(a.created||'')<(b.created||'')?-1:(a.created||'')>(b.created||'')?1:0);
+  else if(sort==='due')ps.sort((a,b)=>projNextDue(a)<projNextDue(b)?-1:1);
   if(!ps.length)return head+'<div class="card">'+emptyBox('No projects yet. Create one and add its tasks.','projects')+'</div>';
   const cards=ps.map(p=>{
     const pp=projPct(p), col='var(--'+(p.color||'sage')+')';
@@ -1953,9 +1960,16 @@ function vProjects(){
     const summary=PSTATUS.map((s,i)=>counts[i]?'<span class="tag" style="color:var(--'+s[2]+')">'+counts[i]+' '+s[1].toLowerCase()+'</span>':'').filter(Boolean).join('');
     const pMin=projFocusMin(p);
     const timeChip=pMin?'<span class="tag" style="color:var(--pine)">'+svg(I.clock)+' '+fmtMin(pMin)+' logged</span>':'';
-    const visible=(p.tasks||[]).filter(t=>!hide||t.status!=='done'||ui.peekDone.has(t.id));
-    const hiddenN=(p.tasks||[]).length-visible.length;
-    const tasks=visible.map(t=>{
+    // Same shape as goal steps: completed hidden behind a toggle, list clipped
+    // to the next 3 unless expanded. A task you just ticked stays put (peekDone).
+    const allT=p.tasks||[];
+    const doneN=allT.filter(t=>t.status==='done').length;
+    const showDone=ui.projShowDone.has(p.id);
+    const visible=showDone?allT:allT.filter(t=>t.status!=='done'||ui.peekDone.has(t.id));
+    const expanded=ui.projOpen.has(p.id);
+    const clip=expanded?visible:visible.slice(0,3);
+    const moreN=visible.length-clip.length;
+    const tasks=clip.map(t=>{
       const st=PSMAP[t.status||'todo'], rd=relDue(t.due);
       return '<div class="ptask" data-drag-item data-id="'+t.id+'"><span class="grip" data-grip aria-label="drag to reorder">'+svg(I.grip)+'</span><button class="status-btn" style="background:var(--'+st[2]+')" data-act="ptask-cycle" data-proj="'+p.id+'" data-id="'+t.id+'">'+st[1]+'</button>'+
         '<div class="txt"><div class="t" style="font-size:13.5px'+(t.status==='done'?';text-decoration:line-through;color:var(--ink-faint)':'')+'">'+esc(t.text)+'</div></div>'+
@@ -1963,18 +1977,22 @@ function vProjects(){
         (rd&&t.status!=='done'?'<span class="tag" style="color:'+(rd.cls==='over'?'var(--clay)':'var(--ink-soft)')+'">'+rd.txt+'</span>':'')+
         focusBtn('ptask',t.id,p.id)+'<button class="icon-btn" data-act="ptask-edit" data-proj="'+p.id+'" data-id="'+t.id+'">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="ptask-del" data-proj="'+p.id+'" data-id="'+t.id+'">'+svg(I.trash)+'</button></div>';
     }).join('');
-    return '<div class="card" style="margin-bottom:16px">'+
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px">'+
-        '<div><h3 style="font-family:var(--serif);font-size:18px;font-weight:600;margin:0;letter-spacing:-.01em;display:flex;align-items:center;gap:9px"><span style="width:11px;height:11px;border-radius:3px;background:'+col+';display:inline-block"></span>'+esc(p.name)+'</h3>'+
+    const ctl=[];
+    if(visible.length>3)ctl.push('<button class="chip" data-act="proj-tasks-more" data-id="'+p.id+'">'+(expanded?'Show fewer tasks':'Show all tasks · '+moreN+' more')+'</button>');
+    if(doneN)ctl.push('<button class="chip'+(showDone?' on':'')+'" data-act="proj-tasks-done" data-id="'+p.id+'">'+(showDone?'Hide completed':'Show completed · '+doneN)+'</button>');
+    const taskCtl=ctl.length?'<div class="chips" style="margin-top:8px">'+ctl.join('')+'</div>':'';
+    const pGrip=sort==='custom'?'<span class="grip" data-grip aria-label="drag to reorder projects" style="margin-top:4px">'+svg(I.grip)+'</span>':'';
+    return '<div class="card" data-drag-item data-id="'+p.id+'" style="margin-bottom:16px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px">'+pGrip+
+        '<div style="flex:1"><h3 style="font-family:var(--serif);font-size:18px;font-weight:600;margin:0;letter-spacing:-.01em;display:flex;align-items:center;gap:9px"><span style="width:11px;height:11px;border-radius:3px;background:'+col+';display:inline-block"></span>'+esc(p.name)+'</h3>'+
           '<div class="chips" style="margin-top:8px">'+(summary||'<span class="faint" style="font-size:12px">No tasks yet</span>')+timeChip+'</div></div>'+
         '<div style="display:flex;gap:4px;flex:none"><button class="icon-btn" data-act="proj-rename" data-id="'+p.id+'" aria-label="rename">'+svg(I.edit)+'</button><button class="icon-btn" data-act="proj-del" data-id="'+p.id+'" aria-label="delete">'+svg(I.trash)+'</button></div></div>'+
       '<div style="display:flex;align-items:center;gap:12px;margin:12px 0"><div style="flex:1">'+bar(pp,col)+'</div><span class="mono" style="font-size:13px;font-weight:600;color:'+col+'">'+pp+'%</span></div>'+
-      '<div data-draglist data-pid="'+p.id+'">'+tasks+'</div>'+
-      (hide&&hiddenN?'<p class="faint" style="font-size:12px;margin:8px 0 0">'+hiddenN+' completed task'+(hiddenN>1?'s':'')+' hidden</p>':'')+
+      '<div data-draglist data-pid="'+p.id+'">'+tasks+'</div>'+taskCtl+
       '<div class="addbar" style="margin-top:12px"><input class="inp" placeholder="Add a task…" data-enter="ptask-add" data-proj="'+p.id+'"><input class="inp" type="date" data-role="pdue" data-proj="'+p.id+'" style="flex:none"><button class="btn sm" data-act="ptask-add" data-proj="'+p.id+'">'+svg(I.plus)+'Task</button></div>'+
     '</div>';
   }).join('');
-  return head+cards;
+  return head+'<div data-draglist data-kind="projects">'+cards+'</div>';
 }
 
 /* ---------- VIEW: HABITS ---------- */
@@ -3691,13 +3709,14 @@ const actions={
   'goal-steps-done'(el){const id=el.dataset.id;if(ui.goalShowDone.has(id))ui.goalShowDone.delete(id);else ui.goalShowDone.add(id);render();},
 
   /* projects */
-  'proj-hidedone'(){S().settings.hideDone=!S().settings.hideDone;ui.peekDone.clear();commit();},
+  'proj-tasks-more'(el){const id=el.dataset.id;if(ui.projOpen.has(id))ui.projOpen.delete(id);else ui.projOpen.add(id);render();},
+  'proj-tasks-done'(el){const id=el.dataset.id;if(ui.projShowDone.has(id))ui.projShowDone.delete(id);else ui.projShowDone.add(id);render();},
   'proj-add'(){openModal({title:'New project',ok:'Create',fields:[
     {key:'name',label:'Project name',placeholder:'e.g. Kitchen remodel'},
     {key:'color',label:'Color',type:'select',value:'sage',options:[{v:'sage',l:'Sage'},{v:'clay',l:'Clay'},{v:'wheat',l:'Wheat'},{v:'plum',l:'Plum'},{v:'stone',l:'Stone'}]}
     ,{key:'goalId',label:'Parent goal',type:'select',value:'',half:true,options:goalOpts()}
     ,{key:'area',label:'Life area',type:'select',value:'',half:true,options:areaOpts()}
-  ],onSave(v){if(!v.name)return;S().projects.push({id:uid(),name:v.name,color:v.color||'sage',tasks:[],goalId:v.goalId||'',area:v.area||''});commit();}});},
+  ],onSave(v){if(!v.name)return;S().projects.push({id:uid(),name:v.name,color:v.color||'sage',tasks:[],goalId:v.goalId||'',area:v.area||'',created:todayStr()});commit();}});},
   'proj-rename'(el){const p=S().projects.find(x=>x.id===el.dataset.id);if(!p)return;openModal({title:'Edit project',fields:[
     {key:'name',label:'Project name',value:p.name},
     {key:'color',label:'Color',type:'select',value:p.color,options:['sage','clay','wheat','plum','stone'].map(c=>({v:c,l:c[0].toUpperCase()+c.slice(1)}))}
@@ -3816,6 +3835,7 @@ document.addEventListener('change',e=>{
   if(act==='nextf'&&t.dataset.k){ui.nextF[t.dataset.k]=t.value;render();return;}
   if(act==='macro-search'){ui.macroSearch=t.value;ui.macroFoodPage=0;render();return;}
   if(act==='goal-sort'){S().settings.goalSort=t.value;commit();return;}
+  if(act==='proj-sort'){S().settings.projSort=t.value;commit();return;}
   if(act==='todo-sort'){S().settings.todoSort=t.value;commit();return;}
   if(act==='todo-group'){S().settings.todoGroup=t.value;commit();return;}
   if(act==='gweight'&&t.dataset.k){S().settings.goalWeights[t.dataset.k]=Math.max(0,+t.value||0);commit();return;}
@@ -3867,6 +3887,10 @@ function endDrag(){
   }
   if(dragCtx.list.dataset.kind==='goals'){
     S().goals.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
+    dragCtx=null;commit();return;
+  }
+  if(dragCtx.list.dataset.kind==='projects'){
+    S().projects.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
     dragCtx=null;commit();return;
   }
   if(dragCtx.list.dataset.kind==='todos'){
