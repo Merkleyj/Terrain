@@ -2084,6 +2084,11 @@ function vMacros(){
 }
 
 /* ---------- VIEW: BUCKET ---------- */
+// Categories you can file an item under: the ones already in use, plus the
+// standard set, so the picker still works when the list is empty.
+function bucketCats(){
+  return [...new Set([...S().bucket.map(b=>b.cat).filter(Boolean),...Object.keys(CATCOLOR)])];
+}
 function vBucket(){
   const bs=S().bucket, f=ui.bucketFilter;
   const cats=[...new Set(bs.map(b=>b.cat))];
@@ -2096,8 +2101,8 @@ function vBucket(){
   const overall='<div class="card" style="margin-bottom:16px"><div style="display:flex;align-items:center;gap:14px;margin-bottom:6px"><span style="font-weight:600">Overall progress</span><span class="spacer mono faint">'+pct(doneAll,bs.length)+'%</span></div>'+bar(pct(doneAll,bs.length),'var(--sage)')+
     '<div class="grid g3" style="margin-top:16px;gap:12px">'+cats.map(c=>{const cd=bs.filter(b=>b.cat===c&&b.done).length,ct=bs.filter(b=>b.cat===c).length;return '<div><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><span style="font-weight:600;color:'+catVar(c)+'">'+esc(c)+'</span><span class="mono faint">'+cd+'/'+ct+'</span></div>'+bar(pct(cd,ct),catVar(c))+'</div>';}).join('')+'</div></div>';
   const filters='<div class="chips" style="margin-bottom:14px"><button class="chip'+(f==='all'?' on':'')+'" data-act="bucket-filter" data-id="all">All · '+bs.length+'</button>'+cats.map(c=>'<button class="chip'+(f===c?' on':'')+'" data-act="bucket-filter" data-id="'+esc(c)+'">'+esc(c)+' · '+bs.filter(b=>b.cat===c).length+'</button>').join('')+'</div>';
-  const add='<div class="card" style="margin-bottom:16px"><div class="addbar"><input class="inp" id="bk-text" placeholder="Add a dream…" data-enter="bucket-add"><select class="inp" id="bk-cat">'+cats.map(c=>'<option>'+esc(c)+'</option>').join('')+'</select><button class="btn primary" data-act="bucket-add">'+svg(I.plus)+'Add</button></div></div>';
-  const rows=list.length?list.map(b=>'<div class="row'+(b.done?' done':'')+'"><button class="chk round'+(b.done?' on':'')+'" data-act="bucket-toggle" data-id="'+b.id+'">'+svg(I.check)+'</button><div class="txt"><div class="t">'+esc(b.text)+'</div></div>'+pill(b.cat,catVar(b.cat),'var(--'+(CATCOLOR[b.cat]||'stone')+'-bg)')+'<button class="icon-btn del" data-act="bucket-del" data-id="'+b.id+'">'+svg(I.trash)+'</button></div>').join(''):emptyBox('Nothing here yet.','bucket');
+  const add='<div class="card" style="margin-bottom:16px"><div class="addbar"><input class="inp" id="bk-text" placeholder="Add a dream…" data-enter="bucket-add"><select class="inp" id="bk-cat">'+bucketCats().map(c=>'<option>'+esc(c)+'</option>').join('')+'</select><button class="btn primary" data-act="bucket-add">'+svg(I.plus)+'Add</button></div></div>';
+  const rows=list.length?list.map(b=>'<div class="row'+(b.done?' done':'')+'"><button class="chk round'+(b.done?' on':'')+'" data-act="bucket-toggle" data-id="'+b.id+'">'+svg(I.check)+'</button><div class="txt"><div class="t">'+esc(b.text)+'</div></div>'+pill(b.cat,catVar(b.cat),'var(--'+(CATCOLOR[b.cat]||'stone')+'-bg)')+'<button class="icon-btn" data-act="bucket-edit" data-id="'+b.id+'" aria-label="edit">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="bucket-del" data-id="'+b.id+'">'+svg(I.trash)+'</button></div>').join(''):emptyBox('Nothing here yet.','bucket');
   return head+overall+add+filters+'<div class="card">'+rows+'</div>';
 }
 
@@ -3752,6 +3757,13 @@ const actions={
   /* bucket */
   'bucket-toggle'(el){const b=S().bucket.find(x=>x.id===el.dataset.id);if(b){b.done=!b.done;commit();}},
   'bucket-add'(){const t=getInput('bk-text');if(!t)return;const c=getInput('bk-cat')||'Other';S().bucket.push({id:uid(),text:t,cat:c,done:false});commit();},
+  'bucket-edit'(el){
+    const b=S().bucket.find(x=>x.id===el.dataset.id);if(!b)return;
+    openModal({title:'Edit bucket list item',fields:[
+      {key:'text',label:'Dream',value:b.text},
+      {key:'cat',label:'Category',type:'select',value:b.cat||'Other',options:bucketCats().map(c=>({v:c,l:c}))}
+    ],onSave(v){if(!v.text)return;b.text=v.text;b.cat=v.cat||'Other';commit();}});
+  },
   'bucket-del'(el){const i=S().bucket.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().bucket.splice(i,1);commit();toast('Removed',()=>{S().bucket.splice(i,0,rm);commit();});},
   'bucket-filter'(el){ui.bucketFilter=el.dataset.id;render();},
 
