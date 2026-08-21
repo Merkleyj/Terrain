@@ -484,6 +484,11 @@ body.tv-on{overflow:hidden}
 .tv-2col .tv-li{break-inside:avoid}
 /* faint trailing context on a TV row: life area, parent project */
 .tv-sub{font-size:1.55vh;font-weight:500;color:var(--ink-faint);font-style:italic}
+/* grouped TV list: faint italic heading over a thin rule in the group's colour */
+.tv-grp+.tv-grp{margin-top:1.2vh}
+.tv-grph{font-size:1.5vh;font-weight:600;font-style:italic;color:var(--ink-faint);letter-spacing:.02em;padding-bottom:.45vh;border-bottom:2px solid var(--line)}
+.tv-grp .tv-li:last-child{border-bottom:none}
+.tv-2col .tv-grp{break-inside:avoid}
 .tv-prog{margin-bottom:1.3vh}
 .tv-prog:last-child{margin-bottom:0}
 .tv-progt{display:flex;justify-content:space-between;align-items:baseline;font-size:1.9vh;font-weight:600;margin-bottom:.6vh;gap:1vh}
@@ -1036,26 +1041,35 @@ function tvHtml(){
   }
   const exBody=exToday.length?exToday.slice(0,3).map(x=>li(x.done?'sage':'plum',esc(x.txt),x.tag,false,x.done)).join(''):empty('Nothing planned today.');
 
-  // To-Do: soonest due first, then grouped by life area so related work sits together.
-  const openTodos=S().todos.filter(x=>!x.done);
-  const tdList=openTodos.slice().sort((a,b)=>{
-    const ad=a.due||'9999-12-31',bd=b.due||'9999-12-31';
-    if(ad!==bd)return ad<bd?-1:1;
-    return (areaName(a.area)||'~~').localeCompare(areaName(b.area)||'~~');
-  }).slice(0,8);
-  const todoBody=tdList.length?tdList.map(x=>{
-    const rd=x.due?relDue(x.due):null,an=x.area?areaName(x.area):'';
-    return li(x.area?areaColorName(x.area):'stone',esc(x.text)+(an?' <span class="tv-sub">'+esc(an)+'</span>':''),rd?rd.txt:'',rd&&rd.cls==='over');
-  }).join(''):empty('Nothing on the list.');
+  // Grouped TV list. Groups are ordered by their soonest deadline and capped at
+  // a couple of rows each, so one busy area can't crowd every other one off the
+  // screen — and a group with no dates just contributes its first couple.
+  // Anything past the caps is left out rather than clipped mid-row.
+  const FAR='9999-12-31';
+  const tvGrouped=(items,maxGroups,perGroup)=>{
+    const m=new Map();
+    items.forEach(x=>{if(!m.has(x.gk))m.set(x.gk,[]);m.get(x.gk).push(x);});
+    const gs=[...m.values()];
+    gs.forEach(l=>l.sort((a,b)=>{const ad=a.due||FAR,bd=b.due||FAR;return ad<bd?-1:ad>bd?1:0;}));
+    gs.sort((a,b)=>{const ad=a[0].due||FAR,bd=b[0].due||FAR;return ad<bd?-1:ad>bd?1:0;});
+    return gs.slice(0,maxGroups).map(l=>{
+      const rows=l.slice(0,perGroup).map(x=>{
+        const rd=x.due?relDue(x.due):null;
+        return li(l[0].gc,esc(x.text),rd?rd.txt:'',rd&&rd.cls==='over');
+      }).join('');
+      return '<div class="tv-grp"><div class="tv-grph" style="border-bottom-color:var(--'+l[0].gc+')">'+esc(l[0].gl)+'</div>'+rows+'</div>';
+    }).join('');
+  };
 
-  // Project tasks: every open task across all projects, soonest deadline first.
-  const ptAll=[];
-  S().projects.forEach(p=>(p.tasks||[]).filter(x=>x.status!=='done').forEach(x=>ptAll.push({p,x})));
-  ptAll.sort((a,b)=>{const ad=a.x.due||'9999-12-31',bd=b.x.due||'9999-12-31';return ad<bd?-1:ad>bd?1:0;});
-  const ptBody=ptAll.length?'<div class="tv-2col">'+ptAll.slice(0,12).map(o=>{
-    const rd=o.x.due?relDue(o.x.due):null;
-    return li(o.p.color||'sage',esc(o.x.text)+' <span class="tv-sub">'+esc(o.p.name)+'</span>',rd?rd.txt:'',rd&&rd.cls==='over');
-  }).join('')+'</div>':empty('No open project tasks.');
+  // To-Do, grouped by life area.
+  const openTodos=S().todos.filter(x=>!x.done);
+  const tdItems=openTodos.map(x=>({due:x.due||'',text:x.text,gk:x.area||'~',gl:(x.area&&areaName(x.area))||'No life area',gc:x.area?areaColorName(x.area):'stone'}));
+  const todoBody=tdItems.length?'<div class="tv-2col">'+tvGrouped(tdItems,4,2)+'</div>':empty('Nothing on the list.');
+
+  // Project tasks, grouped by project, flowing into two columns.
+  const ptItems=[];
+  S().projects.forEach(p=>(p.tasks||[]).filter(x=>x.status!=='done').forEach(x=>ptItems.push({due:x.due||'',text:x.text,gk:p.id,gl:p.name,gc:p.color||'sage'})));
+  const ptBody=ptItems.length?'<div class="tv-2col">'+tvGrouped(ptItems,4,2)+'</div>':empty('No open project tasks.');
 
   const ag=S().goals.filter(g=>goalPct(g)<100).slice(0,4);
   const goalsBody=ag.length?ag.map(g=>{const p=goalPct(g);return '<div class="tv-prog"><div class="tv-progt"><span>'+esc(g.title)+'</span><span class="tv-pct">'+p+'%</span></div>'+bar(p,'var(--'+goalColorName(g)+')')+'</div>';}).join(''):empty('No active goals.');
@@ -1083,7 +1097,7 @@ function tvHtml(){
 
   // Project tasks get the widest slot — it carries two columns of rows.
   const row1=[card2('Today’s Big 3',big3,'Today’s exercise',exBody)],row1c=['1fr'];
-  if(enabled('todo')){row1.push(card('To Do',todoBody));row1c.push('1fr');}
+  if(enabled('todo')){row1.push(card('To Do',todoBody));row1c.push('1.6fr');}
   if(enabled('projects')){row1.push(card('Project tasks',ptBody));row1c.push('1.9fr');}
   const row2=[];
   if(enabled('goals'))row2.push(card('Active goals',goalsBody));
@@ -1102,16 +1116,35 @@ function tvHtml(){
     (row1.length?'<div class="tv-row" style="grid-template-columns:'+row1c.join(' ')+'">'+row1.join('')+'</div>':'')+
     (row2.length?'<div class="tv-row" style="grid-template-columns:repeat('+row2.length+',1fr)">'+row2.join('')+'</div>':'');
 }
+/* Trim each TV card to what actually fits the screen: drop whole groups from
+   the end first, then trailing rows. The caps in tvHtml decide what's worth
+   showing; this decides how much of it the TV has room for, so a row never
+   clips half-height. Runs after every render since it depends on layout. */
+function tvFit(){
+  document.querySelectorAll('#tv-root .tv-cardbody').forEach(b=>{
+    let guard=40;
+    while(b.scrollHeight>b.clientHeight+1&&guard-->0){
+      const g=b.querySelectorAll('.tv-grp');
+      if(g.length>1){g[g.length-1].remove();continue;}
+      const r=b.querySelectorAll('.tv-li');
+      if(r.length>1){r[r.length-1].remove();continue;}
+      break;
+    }
+  });
+}
+function tvPaint(){const el=document.getElementById('tv-root');if(el){el.innerHTML=tvHtml();tvFit();}}
 function tvTick(){
   if(!ui.tv)return;
   const now=new Date(),c=document.getElementById('tv-clock');
   if(c)c.innerHTML=tvClockStr(now);
-  if(now.getSeconds()===0){const tvr=document.getElementById('tv-root');if(tvr)tvr.innerHTML=tvHtml();} // refresh data each minute
+  if(now.getSeconds()===0)tvPaint();   // refresh data each minute
 }
 function enterTV(){
   ui.tv=true;
   const el=document.getElementById('tv-root');
-  if(el){el.innerHTML=tvHtml();el.classList.add('show');}
+  if(el){el.innerHTML=tvHtml();el.classList.add('show');tvFit();}
+  // Going fullscreen resizes the viewport, so the fit is redone on the
+  // fullscreenchange below — this first pass just avoids a flash of overflow.
   document.body.classList.add('tv-on');
   try{const rf=document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen;if(rf){const p=rf.call(document.documentElement);if(p&&p.catch)p.catch(function(){});}}catch(e){}
   if(ui.tvClock)clearInterval(ui.tvClock);
@@ -1126,7 +1159,9 @@ function exitTV(){
   try{if(document.fullscreenElement){const ef=document.exitFullscreen||document.webkitExitFullscreen;if(ef)ef.call(document);}}catch(e){}
   render();
 }
-document.addEventListener('fullscreenchange',function(){if(!document.fullscreenElement&&ui.tv)exitTV();});
+document.addEventListener('fullscreenchange',function(){if(!document.fullscreenElement&&ui.tv){exitTV();return;}if(ui.tv)tvPaint();});
+let tvRz=null;
+window.addEventListener('resize',function(){if(!ui.tv)return;clearTimeout(tvRz);tvRz=setTimeout(tvPaint,150);});
 // Sidebar account footer (styled after Black Ink): avatar + email + sign-out,
 // with a live sync-status line underneath.
 function sbFootInner(){
