@@ -1053,13 +1053,18 @@ function tvHtml(){
     gs.forEach(l=>l.sort((a,b)=>{const ad=a.due||FAR,bd=b.due||FAR;return ad<bd?-1:ad>bd?1:0;}));
     gs.sort((a,b)=>{const ad=a[0].due||FAR,bd=b[0].due||FAR;return ad<bd?-1:ad>bd?1:0;});
     return gs.slice(0,maxGroups).map(l=>{
-      // Every dated task competes for the space; undated ones only ever offer
-      // two, since nothing marks one as more pressing than another.
-      const show=l.filter(x=>x.due).slice(0,6).concat(l.filter(x=>!x.due).slice(0,2));
-      const rows=show.map(x=>{
+      // Every group is entitled to its next two items — that baseline is what
+      // keeps a busy project from starving the quiet ones off the screen.
+      // Further DATED tasks are offered as extras, which the fit pass spends
+      // spare room on and sheds first. Undated tasks never become extras,
+      // since nothing marks one as more pressing than another.
+      const ordered=l.filter(x=>x.due).concat(l.filter(x=>!x.due));
+      const row=(x,extra)=>{
         const rd=x.due?relDue(x.due):null;
-        return li(l[0].gc,esc(x.text),rd?rd.txt:'',rd&&rd.cls==='over',false,x.due||FAR);
-      }).join('');
+        return li(l[0].gc,esc(x.text),rd?rd.txt:'',rd&&rd.cls==='over',false,x.due||FAR).replace('class="tv-li"',extra?'class="tv-li" data-extra="1"':'class="tv-li"');
+      };
+      const rows=ordered.slice(0,2).map(x=>row(x,false)).join('')+
+                 ordered.slice(2).filter(x=>x.due).slice(0,4).map(x=>row(x,true)).join('');
       return '<div class="tv-grp"><div class="tv-grph" style="border-bottom-color:var(--'+l[0].gc+')">'+esc(l[0].gl)+'</div>'+rows+'</div>';
     }).join('');
   };
@@ -1127,18 +1132,20 @@ function tvFit(){
   document.querySelectorAll('#tv-root .tv-cardbody').forEach(b=>{
     let guard=80;
     while(b.scrollHeight>b.clientHeight+1&&guard-->0){
-      // Grouped lists give up their least pressing row first, wherever it sits,
-      // so a project with several near deadlines keeps more of them on screen
-      // than one with a single far-off task.
-      const dated=[...b.querySelectorAll('.tv-li[data-due]')];
-      if(dated.length>1){
-        let worst=dated[0];
-        dated.forEach(r=>{if(r.dataset.due>=worst.dataset.due)worst=r;});
-        const grp=worst.closest('.tv-grp');
-        worst.remove();
-        if(grp&&!grp.querySelector('.tv-li'))grp.remove();
-        continue;
-      }
+      // Least pressing row goes first, wherever it sits — but bonus rows are
+      // spent before any group is cut back to its entitled two.
+      const worstOf=sel=>{
+        const rows=[...b.querySelectorAll(sel)];
+        if(!rows.length)return null;
+        let w=rows[0];
+        rows.forEach(r=>{if(r.dataset.due>=w.dataset.due)w=r;});
+        return w;
+      };
+      const victim=worstOf('.tv-li[data-extra]');
+      if(victim){victim.remove();continue;}
+      // Out of bonus rows. A group is never cut back below its two — the whole
+      // least urgent group steps aside instead, so every group still on screen
+      // shows a useful pair rather than a lone orphaned row.
       const g=b.querySelectorAll('.tv-grp');
       if(g.length>1){g[g.length-1].remove();continue;}
       const r=b.querySelectorAll('.tv-li');
