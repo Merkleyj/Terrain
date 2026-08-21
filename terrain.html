@@ -4,6 +4,11 @@
 <!-- PWA: installable + offline -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#6E7A5A">
+<script>/* Paint the saved theme before first render so a dark-mode user never
+   gets a white flash while the app boots. render() re-applies it after load. */
+try{var _s=JSON.parse(localStorage.getItem("st:life-os:v1")||"{}");
+if(_s&&_s.settings&&_s.settings.theme==="dark"){document.documentElement.setAttribute("data-theme","dark");
+document.querySelector('meta[name="theme-color"]').setAttribute("content","#161512");}}catch(e){}</script>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -27,13 +32,53 @@
   --pine:#5E7A73; --pine-bg:#E1EAE6;
   --meet:#5B7080; --meet-bg:#E1E7EB;
   --event:#8A7B5B; --event-bg:#EDE7DA;
+  --veil:rgba(244,240,232,.86); --veil-2:rgba(252,250,245,.94);
+  --hero-grad:linear-gradient(135deg,#71805B 0%,#5E6B4A 62%,#4F5A3E 100%);
   --shadow:0 1px 2px rgba(44,42,36,.04), 0 8px 24px -12px rgba(44,42,36,.14);
   --shadow-sm:0 1px 2px rgba(44,42,36,.05);
+  color-scheme:light;
   --r:14px; --r-sm:10px;
   --sans:'Hanken Grotesk',system-ui,sans-serif;
   --serif:'Fraunces',Georgia,serif;
   --mono:'JetBrains Mono',ui-monospace,monospace;
 }
+/* Dark theme. Nothing is restyled — only these tokens change, and every
+   surface, rule, chip and bar in the app already reads its colour from them.
+   Accents lift a few steps so they carry against a dark ground; color-scheme
+   turns the browser's own furniture (scrollbars, date pickers, form controls)
+   dark to match. Set from Settings via data-theme on <html>. */
+:root[data-theme="dark"]{
+  --paper:#161512; --surface:#1F1D19; --surface-2:#2A2721; --track:#302C24;
+  --ink:#F1ECE1; --ink-soft:#ADA495; --ink-faint:#968D7E; --line:#3A352C;
+  --sage:#8FA072; --sage-soft:#A3B189; --sage-bg:#2B3123;
+  --clay:#D08A62; --clay-soft:#DBA484; --clay-bg:#3A2A20;
+  --wheat:#D9BA74; --wheat-bg:#39301C;
+  --stone:#B8AC98; --stone-bg:#2F2C25;
+  --plum:#B58F98; --plum-bg:#33272A;
+  --pine:#7FA096; --pine-bg:#22302C;
+  --meet:#86A0B2; --meet-bg:#232C33;
+  --event:#BCA87C; --event-bg:#302B20;
+  --veil:rgba(22,21,18,.86); --veil-2:rgba(31,29,25,.94);
+  --hero-grad:linear-gradient(135deg,#4C573D 0%,#404A34 62%,#353D2B 100%);
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.45);
+  color-scheme:dark;
+}
+/* Filled controls carry white text in light mode, but the dark theme lifts the
+   accents so they become light surfaces — white on them reads about 2.8:1.
+   These take the page's dark ground as their text colour instead. */
+:root[data-theme="dark"] .btn.primary,
+:root[data-theme="dark"] .nav-item.on,
+:root[data-theme="dark"] .nav-item.on .nav-count,
+:root[data-theme="dark"] .status-btn,
+:root[data-theme="dark"] .cal-cell.today .cal-daynum,
+:root[data-theme="dark"] .daychip.on,
+:root[data-theme="dark"] .sb-ava,
+:root[data-theme="dark"] #qa-fab{color:var(--paper)}
+:root[data-theme="dark"] .chk svg,
+:root[data-theme="dark"] #qa-fab svg{stroke:var(--paper)}
+:root[data-theme="dark"] .nav-item.on .nav-count{background:rgba(0,0,0,.22)}
+:root[data-theme="dark"] .btn.primary:hover{background:var(--sage-soft);border-color:var(--sage-soft)}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
@@ -68,7 +113,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
 .sb-sync i.off{background:var(--stone)}
 
 .main{min-width:0;display:flex;flex-direction:column}
-.topbar{position:sticky;top:0;z-index:20;background:rgba(244,240,232,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:16px 30px;display:flex;align-items:center;gap:16px}
+.topbar{position:sticky;top:0;z-index:20;background:var(--veil);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:16px 30px;display:flex;align-items:center;gap:16px}
 .topbar h1{font-family:var(--serif);font-weight:600;font-size:23px;margin:0;letter-spacing:-.015em}
 .topbar .date{margin-left:auto;font-size:13px;color:var(--ink-soft);text-align:right;font-variant-numeric:tabular-nums}
 .topbar .date b{display:block;color:var(--ink);font-weight:600;font-size:14px}
@@ -181,7 +226,7 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
 /* Overview hero */
-.hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#71805B 0%,#5E6B4A 62%,#4F5A3E 100%);color:#fff;border-radius:18px;padding:26px 28px;margin-bottom:16px}
+.hero{position:relative;overflow:hidden;background:var(--hero-grad);color:#fff;border-radius:18px;padding:26px 28px;margin-bottom:16px}
 .hero svg.topo{position:absolute;inset:0;width:100%;height:100%;opacity:.13;pointer-events:none}
 .hero .h-top{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
 .hero .greet{font-family:var(--serif);font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0}
@@ -488,7 +533,7 @@ body.tv-on{overflow:hidden}
 .tv-dot{width:1.1vh;height:1.1vh;min-width:9px;min-height:9px;border-radius:50%;border:.24vh solid var(--sage);background:var(--sage);box-sizing:border-box;flex:none}
 .tv-chk{width:2.2vh;height:2.2vh;min-width:17px;min-height:17px;border:.28vh solid var(--stone);border-radius:.5vh;background:var(--surface);display:grid;place-items:center;flex:none;box-sizing:border-box}
 .tv-chk.on{background:var(--sage);border-color:var(--sage)}
-.tv-chk svg{width:1.4vh;height:1.4vh;min-width:11px;stroke:#fff;fill:none;stroke-width:3.4}
+.tv-chk svg{width:1.4vh;height:1.4vh;min-width:11px;stroke:var(--paper);fill:none;stroke-width:3.4}
 .tv-done{text-decoration:line-through;color:var(--ink-faint)}
 .tv-tag{margin-left:auto;font-size:1.6vh;font-weight:700;color:var(--ink-soft);white-space:nowrap;padding-left:1vh;font-variant-numeric:tabular-nums}
 .tv-tag.over{color:var(--clay)}
@@ -548,7 +593,7 @@ body.tv-on{overflow:hidden}
   /* keep native date/time inputs from overflowing their box on iOS */
   input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%}
   input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left;margin:0}
-  .mobnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(252,250,245,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));gap:2px}
+  .mobnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--veil-2);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));gap:2px}
   .mob-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;padding:7px 3px;border:none;background:none;border-radius:10px;color:var(--ink-faint);font-size:10px;font-weight:600}
   .mob-item svg{width:22px;height:22px}
   .mob-item span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -807,6 +852,7 @@ const Store={
     if(!s.settings||typeof s.settings!=='object')s.settings={};
     if(typeof s.settings.name!=='string')s.settings.name='';
     delete s.settings.hideDone;   // completed tasks now hide per project, like goal steps
+    if(s.settings.theme!=='dark'&&s.settings.theme!=='light')s.settings.theme='light';
     if(!Array.isArray(s.settings.pinned))s.settings.pinned=[];
     if(typeof s.settings.lastBackup!=='string')s.settings.lastBackup='';
     if(!s.settings.goalWeights)s.settings.goalWeights={steps:30,projects:40,tasks:30};
@@ -1272,7 +1318,17 @@ function flashSaved(){const e=$('#saved');if(!e)return;e.classList.add('show');c
 
 // Mark ordinary data inputs so the browser's password manager doesn't offer to "save password".
 function stripAutofill(root){(root||document).querySelectorAll('input:not([autocomplete]):not(#sync-email):not(#sync-pw),textarea:not([autocomplete])').forEach(function(el){el.setAttribute('autocomplete','off');});}
+/* Paint the chosen theme onto <html>. Called from render(), so it re-applies
+   after a boot, a sync pull from another device, or a backup restore — anything
+   that can change settings out from under the page. */
+function applyTheme(){
+  const dark=S().settings.theme==='dark';
+  document.documentElement.dataset.theme=dark?'dark':'light';
+  const m=document.querySelector('meta[name="theme-color"]');
+  if(m)m.setAttribute('content',dark?'#161512':'#6E7A5A');
+}
 function render(){
+  applyTheme();
   if(!VIEWS[ui.view])ui.view='overview'; // safety: unknown/removed view falls back to Overview
   if(ui.tv){const tvr=document.getElementById('tv-root');if(tvr)tvr.innerHTML=tvHtml();return;}
   const view=document.getElementById('view');
@@ -3043,7 +3099,7 @@ function vSettings(){
   acct+
   '<div class="grid g2"><div><div class="card"><div class="card-h"><h3>Tabs</h3><span class="spacer faint" style="font-size:12px">Overview is always on</span></div>'+rows+'</div></div>'+
   '<div>'+
-  '<div class="card"><div class="card-h"><h3>Profile</h3></div><div class="field" style="margin:0"><label>Display name \u2014 used in the dashboard greeting</label><input class="inp" value="'+esc(S().settings.name||'')+'" placeholder="Your name" data-change="set-name"></div></div>'+
+  '<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Appearance</h3></div><div class="set-row" style="border:none;padding-left:0;padding-right:0">'+svg(I.moon)+'<div class="txt">Dark mode<div class="faint" style="font-size:12px;font-weight:500">Easier on the eyes at night. TV mode is always dark.</div></div><button class="chk'+(S().settings.theme==='dark'?' on':'')+'" data-act="theme-toggle" role="switch" aria-checked="'+(S().settings.theme==='dark'?'true':'false')+'" aria-label="toggle dark mode">'+svg(I.check)+'</button></div></div>'+'<div class="card"><div class="card-h"><h3>Profile</h3></div><div class="field" style="margin:0"><label>Display name \u2014 used in the dashboard greeting</label><input class="inp" value="'+esc(S().settings.name||'')+'" placeholder="Your name" data-change="set-name"></div></div>'+
   '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Life areas</h3><span class="spacer faint" style="font-size:11.5px">drag to reorder</span></div><div data-draglist data-kind="areas">'+areaRows+'</div>'+
     '<div class="addbar" style="margin-top:10px"><input class="inp" id="ar-name" placeholder="New area\u2026" data-enter="area-add"><button class="btn sm" data-act="area-add">'+svg(I.plus)+'</button></div></div>'+
   '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Goal progress weights</h3></div><p class="faint" style="font-size:12px;margin:0 0 10px">How steps, linked projects and linked tasks blend into a goal\u2019s progress. Missing categories redistribute automatically.</p><div style="display:flex;gap:10px;flex-wrap:wrap">'+wIn('gweight','steps','Steps %',gw.steps)+wIn('gweight','projects','Projects %',gw.projects)+wIn('gweight','tasks','Tasks %',gw.tasks)+'</div></div>'+
@@ -3258,6 +3314,7 @@ const actions={
 
   /* settings */
   'tab-toggle'(el){const t=S().settings.tabs;const id=el.dataset.id;t[id]=t[id]===false?true:false;commit();},
+  'theme-toggle'(){S().settings.theme=S().settings.theme==='dark'?'light':'dark';commit();},
   'tab-pin'(el){const id=el.dataset.id;const p=S().settings.pinned;const i=p.indexOf(id);if(i>=0)p.splice(i,1);else p.push(id);commit();},
   'backup-open'(){
     const json=JSON.stringify(S(),null,2);
