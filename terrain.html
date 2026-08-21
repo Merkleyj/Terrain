@@ -1020,7 +1020,7 @@ function tvHtml(){
   const dateStr=DOW[now.getDay()]+', '+MONL[now.getMonth()]+' '+now.getDate();
   const greet=(now.getHours()<12?'Good morning':now.getHours()<18?'Good afternoon':'Good evening')+(S().settings&&S().settings.name?', '+esc(S().settings.name):'');
   const hs=habitStat(t),streak=currentStreak(),tB=big3Of(t),mt=macroTotals(t),mg=S().macroGoals;
-  const li=(col,text,tag,over,done)=>'<div class="tv-li"><span class="tv-dot"'+(col?' style="background:var(--'+col+');border-color:var(--'+col+')"':'')+'></span><span class="tv-litx'+(done?' tv-done':'')+'">'+text+'</span>'+(tag?'<span class="tv-tag'+(over?' over':'')+'">'+tag+'</span>':'')+'</div>';
+  const li=(col,text,tag,over,done,due)=>'<div class="tv-li"'+(due?' data-due="'+due+'"':'')+'><span class="tv-dot"'+(col?' style="background:var(--'+col+');border-color:var(--'+col+')"':'')+'></span><span class="tv-litx'+(done?' tv-done':'')+'">'+text+'</span>'+(tag?'<span class="tv-tag'+(over?' over':'')+'">'+tag+'</span>':'')+'</div>';
   const card=(title,body)=>'<div class="tv-card"><div class="tv-ph">'+title+'</div><div class="tv-cardbody">'+body+'</div></div>';
   const card2=(t1,b1,t2,b2)=>'<div class="tv-card"><div class="tv-ph">'+t1+'</div><div class="tv-cardbody">'+b1+'</div><div class="tv-ph tv-ph2">'+t2+'</div><div class="tv-cardbody tv-cardbody2">'+b2+'</div></div>';
   const empty=m=>'<div class="tv-empty">'+m+'</div>';
@@ -1046,16 +1046,19 @@ function tvHtml(){
   // screen — and a group with no dates just contributes its first couple.
   // Anything past the caps is left out rather than clipped mid-row.
   const FAR='9999-12-31';
-  const tvGrouped=(items,maxGroups,perGroup)=>{
+  const tvGrouped=(items,maxGroups)=>{
     const m=new Map();
     items.forEach(x=>{if(!m.has(x.gk))m.set(x.gk,[]);m.get(x.gk).push(x);});
     const gs=[...m.values()];
     gs.forEach(l=>l.sort((a,b)=>{const ad=a.due||FAR,bd=b.due||FAR;return ad<bd?-1:ad>bd?1:0;}));
     gs.sort((a,b)=>{const ad=a[0].due||FAR,bd=b[0].due||FAR;return ad<bd?-1:ad>bd?1:0;});
     return gs.slice(0,maxGroups).map(l=>{
-      const rows=l.slice(0,perGroup).map(x=>{
+      // Every dated task competes for the space; undated ones only ever offer
+      // two, since nothing marks one as more pressing than another.
+      const show=l.filter(x=>x.due).slice(0,6).concat(l.filter(x=>!x.due).slice(0,2));
+      const rows=show.map(x=>{
         const rd=x.due?relDue(x.due):null;
-        return li(l[0].gc,esc(x.text),rd?rd.txt:'',rd&&rd.cls==='over');
+        return li(l[0].gc,esc(x.text),rd?rd.txt:'',rd&&rd.cls==='over',false,x.due||FAR);
       }).join('');
       return '<div class="tv-grp"><div class="tv-grph" style="border-bottom-color:var(--'+l[0].gc+')">'+esc(l[0].gl)+'</div>'+rows+'</div>';
     }).join('');
@@ -1064,12 +1067,12 @@ function tvHtml(){
   // To-Do, grouped by life area.
   const openTodos=S().todos.filter(x=>!x.done);
   const tdItems=openTodos.map(x=>({due:x.due||'',text:x.text,gk:x.area||'~',gl:(x.area&&areaName(x.area))||'No life area',gc:x.area?areaColorName(x.area):'stone'}));
-  const todoBody=tdItems.length?'<div class="tv-2col">'+tvGrouped(tdItems,4,2)+'</div>':empty('Nothing on the list.');
+  const todoBody=tdItems.length?'<div class="tv-2col">'+tvGrouped(tdItems,8)+'</div>':empty('Nothing on the list.');
 
   // Project tasks, grouped by project, flowing into two columns.
   const ptItems=[];
   S().projects.forEach(p=>(p.tasks||[]).filter(x=>x.status!=='done').forEach(x=>ptItems.push({due:x.due||'',text:x.text,gk:p.id,gl:p.name,gc:p.color||'sage'})));
-  const ptBody=ptItems.length?'<div class="tv-2col">'+tvGrouped(ptItems,4,2)+'</div>':empty('No open project tasks.');
+  const ptBody=ptItems.length?'<div class="tv-2col">'+tvGrouped(ptItems,8)+'</div>':empty('No open project tasks.');
 
   const ag=S().goals.filter(g=>goalPct(g)<100).slice(0,4);
   const goalsBody=ag.length?ag.map(g=>{const p=goalPct(g);return '<div class="tv-prog"><div class="tv-progt"><span>'+esc(g.title)+'</span><span class="tv-pct">'+p+'%</span></div>'+bar(p,'var(--'+goalColorName(g)+')')+'</div>';}).join(''):empty('No active goals.');
@@ -1122,8 +1125,20 @@ function tvHtml(){
    clips half-height. Runs after every render since it depends on layout. */
 function tvFit(){
   document.querySelectorAll('#tv-root .tv-cardbody').forEach(b=>{
-    let guard=40;
+    let guard=80;
     while(b.scrollHeight>b.clientHeight+1&&guard-->0){
+      // Grouped lists give up their least pressing row first, wherever it sits,
+      // so a project with several near deadlines keeps more of them on screen
+      // than one with a single far-off task.
+      const dated=[...b.querySelectorAll('.tv-li[data-due]')];
+      if(dated.length>1){
+        let worst=dated[0];
+        dated.forEach(r=>{if(r.dataset.due>=worst.dataset.due)worst=r;});
+        const grp=worst.closest('.tv-grp');
+        worst.remove();
+        if(grp&&!grp.querySelector('.tv-li'))grp.remove();
+        continue;
+      }
       const g=b.querySelectorAll('.tv-grp');
       if(g.length>1){g[g.length-1].remove();continue;}
       const r=b.querySelectorAll('.tv-li');
