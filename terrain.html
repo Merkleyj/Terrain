@@ -1061,10 +1061,13 @@ function tvHtml(){
       const ordered=l.filter(x=>x.due).concat(l.filter(x=>!x.due));
       const row=(x,extra)=>{
         const rd=x.due?relDue(x.due):null;
-        return li(l[0].gc,esc(x.text),rd?rd.txt:'',rd&&rd.cls==='over',false,x.due||FAR).replace('class="tv-li"',extra?'class="tv-li" data-extra="1"':'class="tv-li"');
+        return li(l[0].gc,esc(x.text),rd?rd.txt:'',rd&&rd.cls==='over',false,x.due||FAR)
+          .replace('class="tv-li"',extra?'class="tv-li tv-xrow" style="display:none"':'class="tv-li"');
       };
+      // Two per group, always. Anything further must have a due date, and ships
+      // hidden — tvFit reveals as many as the screen actually has room for.
       const rows=ordered.slice(0,2).map(x=>row(x,false)).join('')+
-                 ordered.slice(2).filter(x=>x.due).slice(0,4).map(x=>row(x,true)).join('');
+                 ordered.slice(2).filter(x=>x.due).slice(0,6).map(x=>row(x,true)).join('');
       return '<div class="tv-grp"><div class="tv-grph" style="border-bottom-color:var(--'+l[0].gc+')">'+esc(l[0].gl)+'</div>'+rows+'</div>';
     }).join('');
   };
@@ -1130,28 +1133,31 @@ function tvHtml(){
    clips half-height. Runs after every render since it depends on layout. */
 function tvFit(){
   document.querySelectorAll('#tv-root .tv-cardbody').forEach(b=>{
+    const fits=()=>b.scrollHeight<=b.clientHeight+1;
     let guard=80;
-    while(b.scrollHeight>b.clientHeight+1&&guard-->0){
-      // Least pressing row goes first, wherever it sits — but bonus rows are
-      // spent before any group is cut back to its entitled two.
-      const worstOf=sel=>{
-        const rows=[...b.querySelectorAll(sel)];
-        if(!rows.length)return null;
-        let w=rows[0];
-        rows.forEach(r=>{if(r.dataset.due>=w.dataset.due)w=r;});
-        return w;
-      };
-      const victim=worstOf('.tv-li[data-extra]');
-      if(victim){victim.remove();continue;}
-      // Out of bonus rows. A group is never cut back below its two — the whole
-      // least urgent group steps aside instead, so every group still on screen
-      // shows a useful pair rather than a lone orphaned row.
+    // 1. Make room for the two-per-group baseline. A group is never cut back
+    //    below its pair — the whole least urgent group steps aside instead, so
+    //    nothing is left as a lone orphaned row.
+    while(!fits()&&guard-->0){
       const g=b.querySelectorAll('.tv-grp');
       if(g.length>1){g[g.length-1].remove();continue;}
-      const r=b.querySelectorAll('.tv-li');
+      const r=b.querySelectorAll('.tv-li:not(.tv-xrow)');
       if(r.length>1){r[r.length-1].remove();continue;}
       break;
     }
+    // 2. Spend whatever room is left on the most pressing dated tasks, adding
+    //    them one at a time and stopping at the first that doesn't fit. Rows
+    //    are a uniform height, so once one overflows none of the rest will —
+    //    and revealing rather than trimming means two columns can't leave the
+    //    card short by removing from whichever column wasn't the tall one.
+    const extras=[...b.querySelectorAll('.tv-xrow')]
+      .sort((x,y)=>x.dataset.due<y.dataset.due?-1:x.dataset.due>y.dataset.due?1:0);
+    for(const r of extras){
+      r.style.display='';
+      if(!fits()){r.style.display='none';break;}
+    }
+    // 3. Discard the ones that never made it so they can't own a row border.
+    b.querySelectorAll('.tv-xrow').forEach(r=>{if(r.style.display==='none')r.remove();});
   });
 }
 function tvPaint(){const el=document.getElementById('tv-root');if(el){el.innerHTML=tvHtml();tvFit();}}
