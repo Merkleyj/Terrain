@@ -476,6 +476,14 @@ body.tv-on{overflow:hidden}
 .tv-tag{margin-left:auto;font-size:1.6vh;font-weight:700;color:var(--ink-soft);white-space:nowrap;padding-left:1vh;font-variant-numeric:tabular-nums}
 .tv-tag.over{color:var(--clay)}
 .tv-empty{font-size:1.9vh;color:var(--ink-faint);padding:1vh 0}
+/* second titled section inside one TV card (Big 3 + Today's exercise) */
+.tv-ph2{margin-top:1.6vh;padding-top:1.3vh;border-top:1px solid var(--line)}
+.tv-cardbody2{flex:none}
+/* project tasks flow into two columns so one card can fill a wide slot */
+.tv-2col{column-count:2;column-gap:1.6vw}
+.tv-2col .tv-li{break-inside:avoid}
+/* faint trailing context on a TV row: life area, parent project */
+.tv-sub{font-size:1.55vh;font-weight:500;color:var(--ink-faint);font-style:italic}
 .tv-prog{margin-bottom:1.3vh}
 .tv-prog:last-child{margin-bottom:0}
 .tv-progt{display:flex;justify-content:space-between;align-items:baseline;font-size:1.9vh;font-weight:600;margin-bottom:.6vh;gap:1vh}
@@ -1009,16 +1017,45 @@ function tvHtml(){
   const hs=habitStat(t),streak=currentStreak(),tB=big3Of(t),mt=macroTotals(t),mg=S().macroGoals;
   const li=(col,text,tag,over,done)=>'<div class="tv-li"><span class="tv-dot"'+(col?' style="background:var(--'+col+');border-color:var(--'+col+')"':'')+'></span><span class="tv-litx'+(done?' tv-done':'')+'">'+text+'</span>'+(tag?'<span class="tv-tag'+(over?' over':'')+'">'+tag+'</span>':'')+'</div>';
   const card=(title,body)=>'<div class="tv-card"><div class="tv-ph">'+title+'</div><div class="tv-cardbody">'+body+'</div></div>';
+  const card2=(t1,b1,t2,b2)=>'<div class="tv-card"><div class="tv-ph">'+t1+'</div><div class="tv-cardbody">'+b1+'</div><div class="tv-ph tv-ph2">'+t2+'</div><div class="tv-cardbody tv-cardbody2">'+b2+'</div></div>';
   const empty=m=>'<div class="tv-empty">'+m+'</div>';
 
-  const big3=tB.items.length?tB.items.slice(0,4).map(it=>'<div class="tv-li"><span class="tv-chk'+(it.done?' on':'')+'">'+(it.done?svg(I.check):'')+'</span><span class="tv-litx'+(it.done?' tv-done':'')+'">'+esc(it.text)+'</span></div>').join(''):empty('No Big 3 set today.');
-  const evs=dayEvents(t).filter(e=>e.src!=='todo').slice(0,6);
-  const sched=evs.length?evs.map(e=>{const m=CAL_SRC[e.src];return li(m.color,esc(e.text),m.label,false,e.done);}).join(''):empty('Nothing scheduled today.');
+  const big3=tB.items.length?tB.items.slice(0,3).map(it=>'<div class="tv-li"><span class="tv-chk'+(it.done?' on':'')+'">'+(it.done?svg(I.check):'')+'</span><span class="tv-litx'+(it.done?' tv-done':'')+'">'+esc(it.text)+'</span></div>').join(''):empty('No Big 3 set today.');
+  // Today's exercise: same rule the calendar uses — a logged session takes over
+  // the slot of one that was scheduled, so a day never shows both.
+  const exToday=[];
+  if(enabled('workouts')){
+    const lg=S().workoutLog.filter(l=>l.date===t);
+    lg.forEach(l=>{const n=(l.sets||[]).length;exToday.push({txt:(l.workoutName||wkName(l.workoutId)),tag:n+' set'+(n===1?'':'s'),done:true});});
+    S().workoutSched.filter(x=>x.date===t).slice(lg.length).forEach(x=>exToday.push({txt:wkName(x.workoutId),tag:'Scheduled',done:false}));
+  }
+  if(enabled('running')){
+    const lr=S().runs.filter(r=>r.date===t);
+    lr.forEach(r=>exToday.push({txt:(Math.round(r.mi*10)/10)+' mi run',tag:fmtSec(r.sec),done:true}));
+    (S().runPlan||[]).filter(x=>x.date===t).slice(lr.length).forEach(x=>exToday.push({txt:x.label,tag:x.miles?x.miles+' mi':'Planned',done:false}));
+  }
+  const exBody=exToday.length?exToday.slice(0,3).map(x=>li(x.done?'sage':'plum',esc(x.txt),x.tag,false,x.done)).join(''):empty('Nothing planned today.');
+
+  // To-Do: soonest due first, then grouped by life area so related work sits together.
   const openTodos=S().todos.filter(x=>!x.done);
-  const prio=openTodos.filter(x=>x.priority==='high').concat(openTodos.filter(x=>x.priority!=='high'&&x.due&&diffDays(x.due,t)<=3)).concat(openTodos.filter(x=>x.priority!=='high'&&!(x.due&&diffDays(x.due,t)<=3))).slice(0,6);
-  const priBody=prio.length?prio.map(x=>{const rd=x.due?relDue(x.due):null;const over=x.priority==='high'||(rd&&rd.cls==='over');const col=(x.priority==='high'||(rd&&rd.cls==='over'))?'clay':(rd&&(rd.cls==='today'||rd.cls==='soon')?'wheat':'sage');return li(col,esc(x.text),x.priority==='high'?'High':(rd?rd.txt:''),over);}).join(''):empty('Nothing urgent.');
-  const up=upcoming().slice(0,6);
-  const deadBody=up.length?up.map(x=>{const rd=relDue(x.when);const over=rd&&rd.cls==='over';const col=over?'clay':(rd&&(rd.cls==='today'||rd.cls==='soon')?'wheat':'sage');return li(col,esc(x.label),rd?rd.txt:'',over);}).join(''):empty('Nothing ahead.');
+  const tdList=openTodos.slice().sort((a,b)=>{
+    const ad=a.due||'9999-12-31',bd=b.due||'9999-12-31';
+    if(ad!==bd)return ad<bd?-1:1;
+    return (areaName(a.area)||'~~').localeCompare(areaName(b.area)||'~~');
+  }).slice(0,8);
+  const todoBody=tdList.length?tdList.map(x=>{
+    const rd=x.due?relDue(x.due):null,an=x.area?areaName(x.area):'';
+    return li(x.area?areaColorName(x.area):'stone',esc(x.text)+(an?' <span class="tv-sub">'+esc(an)+'</span>':''),rd?rd.txt:'',rd&&rd.cls==='over');
+  }).join(''):empty('Nothing on the list.');
+
+  // Project tasks: every open task across all projects, soonest deadline first.
+  const ptAll=[];
+  S().projects.forEach(p=>(p.tasks||[]).filter(x=>x.status!=='done').forEach(x=>ptAll.push({p,x})));
+  ptAll.sort((a,b)=>{const ad=a.x.due||'9999-12-31',bd=b.x.due||'9999-12-31';return ad<bd?-1:ad>bd?1:0;});
+  const ptBody=ptAll.length?'<div class="tv-2col">'+ptAll.slice(0,12).map(o=>{
+    const rd=o.x.due?relDue(o.x.due):null;
+    return li(o.p.color||'sage',esc(o.x.text)+' <span class="tv-sub">'+esc(o.p.name)+'</span>',rd?rd.txt:'',rd&&rd.cls==='over');
+  }).join('')+'</div>':empty('No open project tasks.');
 
   const ag=S().goals.filter(g=>goalPct(g)<100).slice(0,4);
   const goalsBody=ag.length?ag.map(g=>{const p=goalPct(g);return '<div class="tv-prog"><div class="tv-progt"><span>'+esc(g.title)+'</span><span class="tv-pct">'+p+'%</span></div>'+bar(p,'var(--'+goalColorName(g)+')')+'</div>';}).join(''):empty('No active goals.');
@@ -1044,9 +1081,10 @@ function tvHtml(){
   const R=46,C=2*Math.PI*R;
   const ring=enabled('habits')?'<div class="tv-ring"><svg viewBox="0 0 108 108"><circle cx="54" cy="54" r="'+R+'" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="9"/><circle cx="54" cy="54" r="'+R+'" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+(C-C*hs.pct/100)+'" transform="rotate(-90 54 54)"/></svg><div class="tv-ringc"><b>'+hs.pct+'%</b></div></div>':'';
 
-  const row1=[card('Today’s Big 3',big3),card('Schedule',sched)];
-  if(enabled('todo'))row1.push(card('Priorities',priBody));
-  row1.push(card('Deadlines',deadBody));
+  // Project tasks get the widest slot — it carries two columns of rows.
+  const row1=[card2('Today’s Big 3',big3,'Today’s exercise',exBody)],row1c=['1fr'];
+  if(enabled('todo')){row1.push(card('To Do',todoBody));row1c.push('1fr');}
+  if(enabled('projects')){row1.push(card('Project tasks',ptBody));row1c.push('1.9fr');}
   const row2=[];
   if(enabled('goals'))row2.push(card('Active goals',goalsBody));
   if(enabled('projects'))row2.push(card('Project status',projBody));
@@ -1061,7 +1099,7 @@ function tvHtml(){
         '<div class="tv-hr-wrap">'+hstats.join('')+ring+'</div>'+
       '</div>'+
     '</div>'+
-    (row1.length?'<div class="tv-row" style="grid-template-columns:repeat('+row1.length+',1fr)">'+row1.join('')+'</div>':'')+
+    (row1.length?'<div class="tv-row" style="grid-template-columns:'+row1c.join(' ')+'">'+row1.join('')+'</div>':'')+
     (row2.length?'<div class="tv-row" style="grid-template-columns:repeat('+row2.length+',1fr)">'+row2.join('')+'</div>':'');
 }
 function tvTick(){
