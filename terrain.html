@@ -32,6 +32,7 @@ document.querySelector('meta[name="theme-color"]').setAttribute("content","#1615
   --pine:#5E7A73; --pine-bg:#E1EAE6;
   --meet:#5B7080; --meet-bg:#E1E7EB;
   --event:#8A7B5B; --event-bg:#EDE7DA;
+  --appt:#6B6F9E; --appt-bg:#E5E5F0;
   --veil:rgba(244,240,232,.86); --veil-2:rgba(252,250,245,.94);
   --hero-grad:linear-gradient(135deg,#71805B 0%,#5E6B4A 62%,#4F5A3E 100%);
   --shadow:0 1px 2px rgba(44,42,36,.04), 0 8px 24px -12px rgba(44,42,36,.14);
@@ -58,6 +59,7 @@ document.querySelector('meta[name="theme-color"]').setAttribute("content","#1615
   --pine:#7FA096; --pine-bg:#22302C;
   --meet:#86A0B2; --meet-bg:#232C33;
   --event:#BCA87C; --event-bg:#302B20;
+  --appt:#9BA0D0; --appt-bg:#282A3A;
   --veil:rgba(22,21,18,.86); --veil-2:rgba(31,29,25,.94);
   --hero-grad:linear-gradient(135deg,#4C573D 0%,#404A34 62%,#353D2B 100%);
   --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
@@ -500,6 +502,7 @@ body.mobmore-lock{overflow:hidden}
   --pine:#7FA096; --pine-bg:#22302C;
   --meet:#86A0B2; --meet-bg:#232C33;
   --event:#BCA87C; --event-bg:#302B20;
+  --appt:#9BA0D0; --appt-bg:#282A3A;
   --shadow-sm:0 1px 2px rgba(0,0,0,.45);
   position:fixed;inset:0;z-index:2000;display:none;flex-direction:column;gap:2vh;background:var(--paper);color:var(--ink);font-family:var(--sans);padding:2.2vh 2.2vw;overflow:hidden}
 .tv-root.show{display:flex}
@@ -1514,8 +1517,8 @@ function macroRow(lab,val,goal,color,unit){
 }
 
 /* ---------- VIEW: CALENDAR ---------- */
-const CAL_SRC={meeting:{color:'meet',label:'Meeting',view:'calendar'},event:{color:'event',label:'Event',view:'calendar'},todo:{color:'stone',label:'To-Do',view:'todo'},goal:{color:'sage',label:'Goal',view:'goals'},project:{color:'clay',label:'Project',view:'projects'},workout:{color:'plum',label:'Workout',view:'workouts'},run:{color:'wheat',label:'Run',view:'running'},finance:{color:'pine',label:'Finance',view:'bills'}};
-const CAL_ORDER={meeting:-1,todo:0,goal:1,project:2,workout:3,run:4,finance:5};
+const CAL_SRC={meeting:{color:'meet',label:'Meeting',view:'calendar'},appointment:{color:'appt',label:'Appointment',view:'calendar'},event:{color:'event',label:'Event',view:'calendar'},todo:{color:'stone',label:'To-Do',view:'todo'},goal:{color:'sage',label:'Goal',view:'goals'},project:{color:'clay',label:'Project',view:'projects'},workout:{color:'plum',label:'Workout',view:'workouts'},run:{color:'wheat',label:'Run',view:'running'},finance:{color:'pine',label:'Finance',view:'bills'}};
+const CAL_ORDER={appointment:-1,meeting:-1,todo:0,goal:1,project:2,workout:3,run:4,finance:5};
 function fmt12(t){const m=/^(\d{1,2}):(\d{2})$/.exec(t||'');if(!m)return t||'';let h=+m[1];const ap=h<12?'AM':'PM';h=h%12||12;return h+':'+m[2]+' '+ap;}
 function dayEvents(date){
   const out=[];
@@ -1551,10 +1554,19 @@ function dayEvents(date){
   }
   if(enabled('bills'))S().bills.forEach(b=>{if(billOccurs(b,date))out.push({src:'finance',id:b.id,text:b.name+' \u00b7 '+money(b.amt),done:(b.paidLog||[]).includes(date),view:'bills'});});
   if(enabled('savings'))S().savings.forEach(g=>{if(g.targetDate===date){const sv=(g.contribs||[]).reduce((a,c)=>a+(+c.amt||0),0);out.push({src:'finance',id:g.id,text:'Savings goal: '+g.name,done:sv>=(+g.target||0),view:'savings'});}});
-  // meetings[] holds both meetings and plain events (kind:'event')
-  S().meetings.forEach(mt=>{if(mt.date===date)out.push({src:mt.kind==='event'?'event':'meeting',id:mt.id,text:(mt.time?fmt12(mt.time)+' · ':'')+mt.title,done:false,view:'calendar',link:mt.link||''});});
+  // meetings[] holds meetings, plain events (kind:'event') and appointments
+  // (kind:'appointment') — anything anchored to a time of day rather than a task.
+  S().meetings.forEach(mt=>{
+    if(mt.date!==date)return;
+    const kind=(mt.kind==='event'||mt.kind==='appointment')?mt.kind:'meeting';
+    // An appointment can run to an end time: "2:00 PM – 3:00 PM · Dentist".
+    const when=mt.time?fmt12(mt.time)+(mt.end?' – '+fmt12(mt.end):'')+' · ':'';
+    out.push({src:kind,id:mt.id,at:mt.time||'',text:when+mt.title,sub:mt.loc||'',done:false,view:'calendar',link:mt.link||''});
+  });
   out.forEach(e=>{if(!e.view)e.view=CAL_SRC[e.src].view;});
-  return out.sort((a,b)=>CAL_ORDER[a.src]-CAL_ORDER[b.src]);
+  // Same rank means both are anchored to a clock (appointments, meetings) —
+  // those read chronologically rather than by which kind they are.
+  return out.sort((a,b)=>(CAL_ORDER[a.src]-CAL_ORDER[b.src])||((a.at||'')<(b.at||'')?-1:(a.at||'')>(b.at||'')?1:0));
 }
 function hasHabitData(date){const l=S().habitLog[date];return !!(l&&Object.keys(l).length);}
 function hasMacroData(date){return (S().macroLog[date]||[]).length>0;}
@@ -1621,9 +1633,9 @@ function openDay(date){
   const hs=habitStat(date), mt=macroTotals(date), mg=S().macroGoals;
   const calP=pct(mt.cal,mg.cal);
   const evHtml=evs.length?evs.map(e=>{const m=CAL_SRC[e.src];
-    if(e.src==='meeting'||e.src==='event'){
+    if(e.src==='meeting'||e.src==='event'||e.src==='appointment'){
       return '<div class="day-ev" style="cursor:default"><span class="cal-dot" style="background:var(--'+m.color+')"></span>'+
-        '<span class="day-ev-txt">'+esc(e.text)+'</span>'+
+        '<span class="day-ev-txt">'+esc(e.text)+(e.sub?' <span class="faint">· '+esc(e.sub)+'</span>':'')+'</span>'+
         (e.link?'<a class="tag" href="'+esc(e.link)+'" target="_blank" rel="noopener noreferrer" style="color:var(--'+m.color+');text-decoration:underline">Join</a>':'<span class="tag" style="color:var(--'+m.color+')">'+m.label+'</span>')+
         '<button class="icon-btn" data-act="meet-edit" data-id="'+e.id+'" aria-label="edit">'+svg(I.edit)+'</button>'+
         '<button class="icon-btn del" data-act="meet-del" data-id="'+e.id+'" style="margin-left:2px" aria-label="delete">'+svg(I.trash)+'</button></div>';
@@ -1664,11 +1676,12 @@ function openAddEntry(date){
   if(wks.length)typeOpts.push({v:'workout',l:'Workout'});
   if(enabled('running'))typeOpts.push({v:'run',l:'Run'});
   if(enabled('goals'))typeOpts.push({v:'goal',l:'Goal (target date)'});
+  typeOpts.push({v:'appointment',l:'Appointment'});
   typeOpts.push({v:'event',l:'Event'});
   typeOpts.push({v:'meeting',l:'Meeting'});
   if(!typeOpts.length){toast('Turn on To-Do, Projects or Workouts in Settings first');return;}
   const fields=[
-    {key:'text',label:'Title',placeholder:'What\u2019s happening?',showWhen:{key:'type',vals:['todo','project','meeting','event','run','goal']}},
+    {key:'text',label:'Title',placeholder:'What\u2019s happening?',showWhen:{key:'type',vals:['todo','project','meeting','event','appointment','run','goal']}},
     {key:'type',label:'Type',type:'select',value:typeOpts[0].v,options:typeOpts,half:true},
     {key:'date',label:'Date',type:'date',value:date,half:true}
   ];
@@ -1677,11 +1690,15 @@ function openAddEntry(date){
   fields.push({key:'priority',label:'Priority',type:'select',value:'med',options:[{v:'high',l:'High'},{v:'med',l:'Medium'},{v:'low',l:'Low'}],showWhen:{key:'type',vals:['todo']}});
   fields.push({key:'mi',label:'Miles (optional)',type:'number',dec:true,value:'',half:true,showWhen:{key:'type',vals:['run']}});
   fields.push({key:'area',label:'Life area (optional)',type:'select',value:'',half:true,showWhen:{key:'type',vals:['goal']},options:areaOpts()});
-  fields.push({key:'time',label:'Time (optional)',type:'time',half:true,showWhen:{key:'type',vals:['meeting','event']}});
+  fields.push({key:'time',label:'Time (optional)',type:'time',half:true,showWhen:{key:'type',vals:['meeting','event','appointment']}});
+  // An appointment is somewhere you go for a set stretch, so it takes an end
+  // time and a place where a meeting takes a link.
+  fields.push({key:'end',label:'Until (optional)',type:'time',half:true,showWhen:{key:'type',vals:['appointment']}});
+  fields.push({key:'loc',label:'Location (optional)',placeholder:'e.g. Dr. Chen — 4th St',showWhen:{key:'type',vals:['appointment']}});
   fields.push({key:'link',label:'Meeting link',placeholder:'https://…',half:true,showWhen:{key:'type',vals:['meeting']}});
   openModal({title:'Add to calendar',ok:'Add',fields,onSave(v){
     const dt=v.date||date;
-    if(v.type==='meeting'||v.type==='event'){if(!v.text)return;S().meetings.push({id:uid(),date:dt,title:v.text,time:v.time||'',link:(v.type==='meeting'&&v.link)?normUrl(v.link):'',kind:v.type});}
+    if(v.type==='meeting'||v.type==='event'||v.type==='appointment'){if(!v.text)return;S().meetings.push({id:uid(),date:dt,title:v.text,time:v.time||'',end:v.type==='appointment'?(v.end||''):'',loc:v.type==='appointment'?(v.loc||'').trim():'',link:(v.type==='meeting'&&v.link)?normUrl(v.link):'',kind:v.type});}
     else if(v.type==='workout'&&wks.length){const w=S().workouts.find(x=>x.id===v.wk)||wks[0];S().workoutSched.push({id:uid(),date:dt,workoutId:w.id});}
     else if(v.type==='run'){const mi=parseFloat(v.mi)||0;const label=(v.text||'Run').trim()||'Run';S().runPlan=S().runPlan||[];S().runPlan.push({id:uid(),date:dt,label:label+(mi?' · '+(Math.round(mi*10)/10)+' mi':''),miles:mi,kind:'easy'});}
     else if(v.type==='goal'){if(!v.text)return;S().goals.push({id:uid(),title:v.text,target:dt,why:'',steps:[],area:v.area||'',created:todayStr()});}
@@ -3291,20 +3308,27 @@ const actions={
   'cal-today'(){ui.calMonth=firstOfMonth(todayStr());ui.calWeek=weekSun(todayStr());render();},
   'cal-day'(el){openDay(el.dataset.date);},
   'cal-add'(el){openAddEntry(el.dataset.date||todayStr());},
-  'meet-del'(el){const i=S().meetings.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const rm=S().meetings[i];S().meetings.splice(i,1);commit();openDay(rm.date);toast((rm.kind==='event'?'Event':'Meeting')+' deleted',()=>{S().meetings.splice(Math.min(i,S().meetings.length),0,rm);commit();openDay(rm.date);});},
+  'meet-del'(el){const i=S().meetings.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const rm=S().meetings[i];S().meetings.splice(i,1);commit();openDay(rm.date);toast((rm.kind==='event'?'Event':rm.kind==='appointment'?'Appointment':'Meeting')+' deleted',()=>{S().meetings.splice(Math.min(i,S().meetings.length),0,rm);commit();openDay(rm.date);});},
   'meet-edit'(el){
     const mt=S().meetings.find(x=>x.id===el.dataset.id);if(!mt)return;
-    const isEvent=mt.kind==='event';
+    const isAppt=mt.kind==='appointment', isEvent=mt.kind==='event';
+    const label=isAppt?'appointment':(isEvent?'event':'meeting');
     const fields=[
       {key:'title',label:'Title',value:mt.title},
       {key:'date',label:'Date',type:'date',value:mt.date,half:true},
       {key:'time',label:'Time (optional)',type:'time',value:mt.time||'',half:true}
     ];
-    if(!isEvent)fields.push({key:'link',label:'Meeting link',value:mt.link||'',placeholder:'https://…'});
-    openModal({title:'Edit '+(isEvent?'event':'meeting'),fields,onSave(v){
+    if(isAppt){
+      fields.push({key:'end',label:'Until (optional)',type:'time',value:mt.end||'',half:true});
+      fields.push({key:'loc',label:'Location (optional)',value:mt.loc||'',placeholder:'e.g. Dr. Chen — 4th St'});
+    }
+    if(!isEvent&&!isAppt)fields.push({key:'link',label:'Meeting link',value:mt.link||'',placeholder:'https://…'});
+    openModal({title:'Edit '+label,fields,onSave(v){
       if(!v.title)return;
       const old=mt.date;
-      Object.assign(mt,{title:v.title,date:v.date||mt.date,time:v.time||'',link:isEvent?'':(v.link?normUrl(v.link):'')});
+      Object.assign(mt,{title:v.title,date:v.date||mt.date,time:v.time||'',
+        end:isAppt?(v.end||''):'',loc:isAppt?(v.loc||'').trim():'',
+        link:(isEvent||isAppt)?'':(v.link?normUrl(v.link):'')});
       commit();openDay(mt.date!==old?mt.date:old);
     }});
   },
