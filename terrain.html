@@ -278,12 +278,29 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .cal-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .cal-title{font-family:var(--serif);font-weight:600;font-size:20px;letter-spacing:-.01em;min-width:172px}
 .cal-modes{display:flex;gap:6px}
-.cal-week{grid-template-columns:repeat(7,1fr)}
-.cal-wkcell{min-height:190px}
-.cal-wkhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
-.cal-wkdow{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
-.cal-week .cal-evs{display:flex;flex-direction:column;gap:3px}
-.cal-week .cal-more{display:inline-block}
+/* Week view: seven tall day cards readable without opening them — four across
+   the top, three wider ones below (12-column track: spans of 3, then 4). */
+.cal-grid.cal-week{grid-template-columns:repeat(12,1fr);gap:10px}
+.cal-cell.cal-wkcell{min-height:300px;padding:11px 11px 9px;gap:8px;grid-column:span 4}
+.cal-cell.cal-wkcell:nth-child(-n+4){grid-column:span 3}
+.cal-cell.cal-wkcell:hover{transform:none}
+.cal-wkhead{display:flex;align-items:baseline;gap:8px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+.cal-wkdow{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+.wk-date{font-family:var(--serif);font-size:22px;font-weight:600;line-height:1;color:var(--ink)}
+.wk-mon{font-size:11.5px;color:var(--ink-faint);font-weight:600}
+.wk-today{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--sage);background:var(--sage-bg);padding:2px 7px;border-radius:10px}
+.wk-count{margin-left:auto;font-size:11px;color:var(--ink-faint);font-weight:600}
+.wk-evs{display:flex;flex-direction:column;gap:5px;min-width:0}
+.wk-ev{display:flex;flex-direction:column;gap:1px;padding:5px 8px 5px 9px;border-radius:7px;background:var(--cb);border-left:3px solid var(--c);min-width:0}
+.wk-ev-t{font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.wk-ev-m{font-size:10.5px;font-weight:600;color:var(--ink);opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wk-ev.done{opacity:.62}
+.wk-ev.done .wk-ev-t{text-decoration:line-through}
+.wk-empty{font-size:12px;color:var(--ink-faint);padding:4px 2px}
+.wk-more{font-size:11px;color:var(--ink-faint);font-weight:600;padding-left:2px}
+.cal-wkcell .cal-foot{font-size:11px;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:7px}
+.cal-wkcell .cal-foot .cf i{width:7px;height:7px}
+@media(max-width:1100px){.cal-grid.cal-week{grid-template-columns:repeat(2,1fr)}.cal-cell.cal-wkcell,.cal-cell.cal-wkcell:nth-child(-n+4){grid-column:auto}}
 .cal-legend{display:flex;gap:14px;flex-wrap:wrap;margin-left:auto}
 .cal-legend .lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);font-weight:600}
 .cal-legend .lg i{width:9px;height:9px;border-radius:3px;display:inline-block}
@@ -323,8 +340,9 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
   .cal-grid,.cal-dow{gap:4px}
   .cal-cell{min-height:74px;padding:5px 4px;border-radius:9px}
   .cal-evs,.cal-more{display:none}
-  .cal-week{grid-template-columns:1fr}
-  .cal-wkcell{min-height:auto}
+  .cal-grid.cal-week{grid-template-columns:1fr}
+  .cal-cell.cal-wkcell{min-height:auto}
+  .cal-wkcell .wk-evs{display:flex}
   .cal-dots{display:flex}
   .cal-foot{font-size:8.5px;gap:5px;flex-wrap:wrap}
   .cal-legend{width:100%;margin-left:0}
@@ -1591,14 +1609,27 @@ function calCell(dateStr,inMonth){
 }
 function calWeekCell(dateStr){
   const isToday=dateStr===todayStr(),d=parseD(dateStr),evs=dayEvents(dateStr);
-  const evHtml=evs.slice(0,8).map(e=>{const m=CAL_SRC[e.src];return '<span class="cal-ev" style="background:var(--'+m.color+'-bg);color:var(--'+m.color+')'+(e.done?';opacity:.55;text-decoration:line-through':'')+'">'+esc(e.text)+'</span>';}).join('');
-  const more=evs.length>8?'<span class="cal-more">+'+(evs.length-8)+' more</span>':'';
+  const MAX=10;
+  // Each entry shows its full title (up to two lines) plus what it is and where
+  // it belongs — "Project · Blaze & Birch", "Appointment · Dr. Chen" — so the
+  // week reads without opening a day.
+  const evHtml=evs.slice(0,MAX).map(e=>{
+    const m=CAL_SRC[e.src];
+    return '<span class="wk-ev'+(e.done?' done':'')+'" style="--c:var(--'+m.color+');--cb:var(--'+m.color+'-bg)">'+
+      '<span class="wk-ev-t">'+esc(e.text)+'</span>'+
+      '<span class="wk-ev-m">'+m.label+(e.sub?' · '+esc(e.sub):'')+'</span></span>';
+  }).join('');
+  const more=evs.length>MAX?'<span class="wk-more">+'+(evs.length-MAX)+' more</span>':'';
   let foot='';
-  if(enabled('habits')&&(hasHabitData(dateStr)||isToday)){const hs=habitStat(dateStr);const o=hs.total?(hs.pct===0?.18:0.25+hs.pct/100*0.75):.18;foot+='<span class="cf" title="Checklist '+hs.pct+'%"><i style="background:rgba(110,122,90,'+o.toFixed(2)+')"></i>'+hs.done+'/'+hs.total+'</span>';}
-  if(enabled('macros')&&hasMacroData(dateStr)){const mt=macroTotals(dateStr);foot+='<span class="cf" title="Calories logged"><i style="background:var(--clay)"></i>'+Math.round(mt.cal)+'</span>';}
+  if(enabled('habits')&&(hasHabitData(dateStr)||isToday)){const hs=habitStat(dateStr);foot+='<span class="cf" title="Daily checklist"><i style="background:var(--sage);opacity:'+(hs.total?(0.3+hs.pct/100*0.7).toFixed(2):'.3')+'"></i>Checklist '+hs.done+'/'+hs.total+'</span>';}
+  if(enabled('macros')&&hasMacroData(dateStr)){const mt=macroTotals(dateStr);foot+='<span class="cf" title="Calories logged"><i style="background:var(--clay)"></i>'+Math.round(mt.cal)+' kcal</span>';}
+  const sl=enabled('sleep')?S().sleepLog.find(x=>x.date===dateStr):null;
+  if(sl)foot+='<span class="cf" title="Sleep"><i style="background:var(--plum)"></i>'+fmtDur(sl.dur)+' sleep</span>';
   return '<button class="cal-cell cal-wkcell'+(isToday?' today':'')+'" data-act="cal-day" data-date="'+dateStr+'">'+
-    '<span class="cal-wkhead"><span class="cal-wkdow">'+DOW[d.getDay()]+'</span><span class="cal-daynum">'+d.getDate()+'</span></span>'+
-    (evHtml||more?'<span class="cal-evs">'+evHtml+more+'</span>':'')+
+    '<span class="cal-wkhead"><span class="cal-wkdow">'+DOW[d.getDay()]+'</span><span class="wk-date">'+d.getDate()+'</span><span class="wk-mon">'+MON[d.getMonth()]+'</span>'+
+      (isToday?'<span class="wk-today">Today</span>':'')+
+      (evs.length?'<span class="wk-count">'+evs.length+' item'+(evs.length===1?'':'s')+'</span>':'')+'</span>'+
+    '<span class="wk-evs">'+(evHtml||'<span class="wk-empty">Nothing scheduled</span>')+more+'</span>'+
     (foot?'<span class="cal-foot" style="margin-top:auto">'+foot+'</span>':'')+
     '</button>';
 }
