@@ -8,7 +8,7 @@
    gets a white flash while the app boots. render() re-applies it after load. */
 try{var _s=JSON.parse(localStorage.getItem("st:life-os:v1")||"{}");
 if(_s&&_s.settings&&_s.settings.theme==="dark"){document.documentElement.setAttribute("data-theme","dark");
-document.querySelector('meta[name="theme-color"]').setAttribute("content","#161512");}}catch(e){}</script>
+document.querySelector('meta[name="theme-color"]').setAttribute("content","#131416");}}catch(e){}</script>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -49,18 +49,18 @@ document.querySelector('meta[name="theme-color"]').setAttribute("content","#1615
    turns the browser's own furniture (scrollbars, date pickers, form controls)
    dark to match. Set from Settings via data-theme on <html>. */
 :root[data-theme="dark"]{
-  --paper:#161512; --surface:#1F1D19; --surface-2:#2A2721; --track:#302C24;
-  --ink:#F1ECE1; --ink-soft:#ADA495; --ink-faint:#968D7E; --line:#3A352C;
-  --sage:#8FA072; --sage-soft:#A3B189; --sage-bg:#2B3123;
-  --clay:#D08A62; --clay-soft:#DBA484; --clay-bg:#3A2A20;
-  --wheat:#D9BA74; --wheat-bg:#39301C;
-  --stone:#B8AC98; --stone-bg:#2F2C25;
-  --plum:#B58F98; --plum-bg:#33272A;
-  --pine:#7FA096; --pine-bg:#22302C;
-  --meet:#86A0B2; --meet-bg:#232C33;
-  --event:#BCA87C; --event-bg:#302B20;
-  --appt:#9BA0D0; --appt-bg:#282A3A;
-  --veil:rgba(22,21,18,.86); --veil-2:rgba(31,29,25,.94);
+  --paper:#131416; --surface:#1B1C1F; --surface-2:#25262A; --track:#2D2F33;
+  --ink:#ECEDF0; --ink-soft:#A7AAB0; --ink-faint:#8E9198; --line:#34363B;
+  --sage:#8FA072; --sage-soft:#A3B189; --sage-bg:#2E312C;
+  --clay:#D08A62; --clay-soft:#DBA484; --clay-bg:#382E2A;
+  --wheat:#D9BA74; --wheat-bg:#39352D;
+  --stone:#A9ACB2; --stone-bg:#323337;
+  --plum:#B58F98; --plum-bg:#342E32;
+  --pine:#7FA096; --pine-bg:#2B3132;
+  --meet:#86A0B2; --meet-bg:#2C3137;
+  --event:#BCA87C; --event-bg:#35322E;
+  --appt:#9BA0D0; --appt-bg:#2F313B;
+  --veil:rgba(19,20,22,.86); --veil-2:rgba(27,28,31,.94);
   --hero-grad:linear-gradient(135deg,#4C573D 0%,#404A34 62%,#353D2B 100%);
   --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
   --shadow-sm:0 1px 2px rgba(0,0,0,.45);
@@ -492,17 +492,17 @@ body.mobmore-lock{overflow:hidden}
    dot and rule inside reads its colour from these, so nothing else changes.
    Accents are lifted a few steps so they still carry against a dark ground. */
 .tv-root{
-  --paper:#161512; --surface:#1F1D19; --surface-2:#2A2721; --track:#302C24;
-  --ink:#F1ECE1; --ink-soft:#ADA495; --ink-faint:#968D7E; --line:#3A352C;
-  --sage:#8FA072; --sage-soft:#A3B189; --sage-bg:#2B3123;
-  --clay:#D08A62; --clay-soft:#DBA484; --clay-bg:#3A2A20;
-  --wheat:#D9BA74; --wheat-bg:#39301C;
-  --stone:#B8AC98; --stone-bg:#2F2C25;
-  --plum:#B58F98; --plum-bg:#33272A;
-  --pine:#7FA096; --pine-bg:#22302C;
-  --meet:#86A0B2; --meet-bg:#232C33;
-  --event:#BCA87C; --event-bg:#302B20;
-  --appt:#9BA0D0; --appt-bg:#282A3A;
+  --paper:#131416; --surface:#1B1C1F; --surface-2:#25262A; --track:#2D2F33;
+  --ink:#ECEDF0; --ink-soft:#A7AAB0; --ink-faint:#8E9198; --line:#34363B;
+  --sage:#8FA072; --sage-soft:#A3B189; --sage-bg:#2E312C;
+  --clay:#D08A62; --clay-soft:#DBA484; --clay-bg:#382E2A;
+  --wheat:#D9BA74; --wheat-bg:#39352D;
+  --stone:#A9ACB2; --stone-bg:#323337;
+  --plum:#B58F98; --plum-bg:#342E32;
+  --pine:#7FA096; --pine-bg:#2B3132;
+  --meet:#86A0B2; --meet-bg:#2C3137;
+  --event:#BCA87C; --event-bg:#35322E;
+  --appt:#9BA0D0; --appt-bg:#2F313B;
   --shadow-sm:0 1px 2px rgba(0,0,0,.45);
   position:fixed;inset:0;z-index:2000;display:none;flex-direction:column;gap:2vh;background:var(--paper);color:var(--ink);font-family:var(--sans);padding:2.2vh 2.2vw;overflow:hidden}
 .tv-root.show{display:flex}
@@ -1328,7 +1328,7 @@ function applyTheme(){
   const dark=S().settings.theme==='dark';
   document.documentElement.dataset.theme=dark?'dark':'light';
   const m=document.querySelector('meta[name="theme-color"]');
-  if(m)m.setAttribute('content',dark?'#161512':'#6E7A5A');
+  if(m)m.setAttribute('content',dark?'#131416':'#6E7A5A');
 }
 function render(){
   applyTheme();
