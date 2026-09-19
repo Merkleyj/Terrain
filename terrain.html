@@ -100,12 +100,6 @@ document.querySelector('meta[name="theme-color"]').setAttribute("content","#1314
 :root[data-accent="slate"]{--accent:#4A4F57;--accent-soft:#6B717A;--accent-bg:#E6E7EA;--accent-deep:#3B3F46;--accent-rgb:74,79,87;--hero-grad:linear-gradient(135deg,#4D525A 0%,#41464D 62%,#373A40 100%)}
 :root[data-theme="dark"][data-accent="slate"]{--accent:#B4B9C2;--accent-soft:#C9CDD4;--accent-bg:#2A2C30;--accent-deep:#C9CDD4;--accent-rgb:180,185,194;--hero-grad:linear-gradient(135deg,#35393F 0%,#2D3035 62%,#26282C 100%)}
 :root[data-accent="slate"] .tv-root{--accent:#B4B9C2;--accent-soft:#C9CDD4;--accent-bg:#2A2C30;--accent-rgb:180,185,194;--hero-grad:linear-gradient(135deg,#35393F 0%,#2D3035 62%,#26282C 100%)}
-:root[data-accent="maroon"]{--accent:#7B2D3B;--accent-soft:#A15A66;--accent-bg:#F2E1E3;--accent-deep:#64232F;--accent-rgb:123,45,59;--hero-grad:linear-gradient(135deg,#8A3242 0%,#762B39 62%,#652530 100%)}
-:root[data-theme="dark"][data-accent="maroon"]{--accent:#CB8791;--accent-soft:#D8A0A8;--accent-bg:#372D31;--accent-deep:#D8A0A8;--accent-rgb:203,135,145;--hero-grad:linear-gradient(135deg,#712936 0%,#62242F 62%,#541F28 100%)}
-:root[data-accent="maroon"] .tv-root{--accent:#CB8791;--accent-soft:#D8A0A8;--accent-bg:#372D31;--accent-rgb:203,135,145;--hero-grad:linear-gradient(135deg,#712936 0%,#62242F 62%,#541F28 100%)}
-:root[data-accent="navy"]{--accent:#36445C;--accent-soft:#5D6B82;--accent-bg:#E3E6EC;--accent-deep:#2A3549;--accent-rgb:54,68,92;--hero-grad:linear-gradient(135deg,#3C4C67 0%,#344158 62%,#2C384B 100%)}
-:root[data-theme="dark"][data-accent="navy"]{--accent:#97A7C2;--accent-soft:#B0BDD2;--accent-bg:#2F3239;--accent-deep:#B0BDD2;--accent-rgb:151,167,194;--hero-grad:linear-gradient(135deg,#323F55 0%,#2B364A 62%,#252E3F 100%)}
-:root[data-accent="navy"] .tv-root{--accent:#97A7C2;--accent-soft:#B0BDD2;--accent-bg:#2F3239;--accent-rgb:151,167,194;--hero-grad:linear-gradient(135deg,#323F55 0%,#2B364A 62%,#252E3F 100%)}
 .swatches{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
 .swatch{width:28px;height:28px;border-radius:50%;border:3px solid var(--surface);background:var(--sw);box-shadow:0 0 0 1px var(--line);padding:0;flex:none;transition:.14s}
 .swatch:hover{transform:scale(1.08)}
@@ -905,7 +899,9 @@ const Store={
     if(typeof s.settings.name!=='string')s.settings.name='';
     delete s.settings.hideDone;   // completed tasks now hide per project, like goal steps
     if(s.settings.theme!=='dark'&&s.settings.theme!=='light')s.settings.theme='light';
-    if(!['sage','ocean','teal','rose','slate','maroon','navy'].includes(s.settings.accent))s.settings.accent='sage';
+    if(s.settings.accent==='maroon')s.settings.accent='rose';   // Maroon and Navy were retired;
+    if(s.settings.accent==='navy')s.settings.accent='slate';    // move to the nearest survivor
+    if(!['sage','ocean','teal','rose','slate'].includes(s.settings.accent))s.settings.accent='sage';
     if(!Array.isArray(s.settings.pinned))s.settings.pinned=[];
     if(typeof s.settings.lastBackup!=='string')s.settings.lastBackup='';
     if(!s.settings.goalWeights)s.settings.goalWeights={steps:30,projects:40,tasks:30};
@@ -1376,7 +1372,7 @@ function stripAutofill(root){(root||document).querySelectorAll('input:not([autoc
    that can change settings out from under the page. */
 /* Accent presets: light-mode colour (shown on the swatch, and the phone's status
    bar) and dark-mode colour. The full palettes live in CSS. */
-const ACCENTS=[{id:'sage',l:'Sage',light:'#6E7A5A',dark:'#8FA072'},{id:'ocean',l:'Ocean',light:'#4A6A8A',dark:'#86A6C6'},{id:'teal',l:'Teal',light:'#2E7370',dark:'#6FB5AE'},{id:'rose',l:'Rose',light:'#9C5268',dark:'#D495A6'},{id:'slate',l:'Slate',light:'#4A4F57',dark:'#B4B9C2'},{id:'maroon',l:'Maroon',light:'#7B2D3B',dark:'#CB8791'},{id:'navy',l:'Navy',light:'#36445C',dark:'#97A7C2'}];
+const ACCENTS=[{id:'sage',l:'Sage',light:'#6E7A5A',dark:'#8FA072'},{id:'ocean',l:'Ocean',light:'#4A6A8A',dark:'#86A6C6'},{id:'teal',l:'Teal',light:'#2E7370',dark:'#6FB5AE'},{id:'rose',l:'Rose',light:'#9C5268',dark:'#D495A6'},{id:'slate',l:'Slate',light:'#4A4F57',dark:'#B4B9C2'}];
 function applyTheme(){
   const dark=S().settings.theme==='dark';
   const ac=ACCENTS.find(a=>a.id===S().settings.accent)||ACCENTS[0];
