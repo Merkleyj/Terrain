@@ -451,7 +451,7 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .grip svg{width:14px;height:14px}
 .ptask.dragging{opacity:.55;background:var(--surface-2);border-radius:9px}
 
-/* areas / next / focus / scorecard */
+/* areas / next / focus */
 .area-card{cursor:pointer;transition:.15s}
 .area-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-sm);border-color:var(--stone)}
 .metachip{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:var(--ink-soft);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-family:inherit;line-height:1.7}
@@ -460,12 +460,6 @@ button.metachip:hover{border-color:var(--stone);color:var(--ink)}
 .metachip svg{width:11px;height:11px;flex:none;opacity:.8}
 .recbadge{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--pine);background:var(--pine-bg);border-radius:6px;padding:1px 7px}
 .focus-clock{font-family:var(--mono);font-size:46px;font-weight:600;letter-spacing:.02em;text-align:center;margin:10px 0}
-.scorebar{display:flex;gap:14px;flex-wrap:wrap}
-.scorebar .sc{flex:1;min-width:72px;text-align:center}
-.scorebar .sc .n{font-family:var(--serif);font-size:21px;font-weight:600}
-.scorebar .sc .l{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
-details.expl summary{cursor:pointer;font-size:11.5px;color:var(--ink-faint);font-weight:600}
-details.expl p{font-size:11.5px;color:var(--ink-soft);margin:8px 0 0;line-height:1.55}
 
 /* badges */
 .badge{display:flex;gap:12px;align-items:center;padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
@@ -905,7 +899,7 @@ const Store={
     if(!Array.isArray(s.settings.pinned))s.settings.pinned=[];
     if(typeof s.settings.lastBackup!=='string')s.settings.lastBackup='';
     if(!s.settings.goalWeights)s.settings.goalWeights={steps:30,projects:40,tasks:30};
-    if(!s.settings.scoreWeights)s.settings.scoreWeights={exec:30,health:25,growth:15,finance:15,recovery:15};
+    delete s.settings.scoreWeights;   // balanced scorecard removed
     const defTabs={calendar:true,inbox:true,todo:true,habits:true,workouts:true,running:true,sleep:true,macros:true,vision:true,goals:true,projects:true,skills:true,networth:true,savings:true,bills:true,achievements:true,bucket:true,reading:true,journal:true,review:true,areas:true,next:true};
     s.settings.tabs=Object.assign({},defTabs,s.settings.tabs||{});
     s.reading.forEach(r=>{
@@ -1556,8 +1550,6 @@ function vOverview(){
   if(enabled('skills'))row3.push('<div class="card"><div class="card-h"><h3>Skills</h3><button class="btn ghost sm spacer" data-act="nav" data-id="skills">Open</button></div>'+
       '<div style="display:flex;justify-content:space-around;gap:12px;padding-top:4px">'+metric(Math.round(wkSkMin/6)/10+'h','This week')+metric(Math.round(totSkH*10)/10+'h','Total')+'</div></div>');
   row3.push('<div class="card"><div class="card-h"><h3>Upcoming deadlines</h3></div>'+upHtml+readEmbed+'</div>');
-  if(enabled('review'))row3.push('<div class="card"><div class="card-h"><h3>This week</h3><button class="btn ghost sm spacer" data-act="nav" data-id="review">Review</button></div>'+scoreCardHtml(weekSun(t),true)+
-    '<div class="faint" style="font-size:11.5px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">'+weekKindDone(weekSun(t),'progress')+' progress \u00b7 '+weekKindDone(weekSun(t),'maintenance')+' maintenance completions</div></div>');
 
   const rowHtml=arr=>arr.length?'<div class="grid g'+Math.min(arr.length,4)+'" style="margin-bottom:16px">'+arr.join('')+'</div>':'';
   return heroHtml+rowHtml(todayRow)+rowHtml(row1)+rowHtml(row2)+rowHtml(row3);
@@ -1979,42 +1971,6 @@ function weekKindDone(w0,kind){
   S().todos.forEach(t=>{if(t.kind===kind){if(t.done&&inWk(t.completedAt))n++;(t.recurLog||[]).forEach(d=>{if(inWk(d))n++;});}});
   if(kind==='maintenance'){/* habits count as maintenance completions */}
   return n;
-}
-function scorecard(w0){
-  const t=todayStr(),w6=addDays(w0,6),inWk=d=>d&&d>=w0&&d<=w6;
-  const avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;
-  // Execution: Big-3 completion + progress-task throughput (5/wk = 100)
-  let bT=0,bD=0;for(let i=0;i<7;i++){const b=S().big3[addDays(w0,i)];if(b&&b.items.length){bT+=b.items.length;bD+=b.items.filter(x=>x.done).length;}}
-  const prog=weekKindDone(w0,'progress');
-  const ex=[];if(bT)ex.push(pct(bD,bT));if(prog)ex.push(clamp(prog/5*100,0,100));
-  // Health: workouts (3/wk), sleep vs 7.5h, habit consistency
-  const sess=S().workoutLog.filter(l=>inWk(l.date)).length;
-  const sl=S().sleepLog.filter(x=>inWk(x.date));
-  let hd=0,hs=0;for(let i=0;i<7;i++){const d=addDays(w0,i);if(d>t)break;const st=habitStat(d);if(st.total){hd++;hs+=st.pct;}}
-  const he=[];if(sess)he.push(clamp(sess/3*100,0,100));if(sl.length)he.push(clamp(sl.reduce((a,x)=>a+x.dur,0)/sl.length/450*100,0,100));if(hd)he.push(Math.round(hs/hd));
-  // Growth: skill hours (5h/wk), journal entries (3/wk)
-  const skm=S().skills.reduce((a,s)=>a+(s.log||[]).filter(x=>inWk(x.date)).reduce((b,x)=>b+(+x.min||0),0),0);
-  const jn=S().journal.filter(j=>inWk(j.date)).length;
-  const gr=[];if(skm)gr.push(clamp(skm/300*100,0,100));if(jn)gr.push(clamp(jn/3*100,0,100));
-  // Finance: weekly spend vs budget/4.345
-  const spent=S().spend.filter(e=>inWk(e.date)).reduce((a,e)=>a+(+e.amt||0),0);
-  const wb=S().budgetCats.reduce((a,c)=>a+(+c.limit||0),0)/4.345;
-  const fi=[];if(wb>0&&(spent>0||S().spend.length))fi.push(clamp(200-spent/wb*100,0,100));
-  // Recovery: sleep quality, reflection days
-  const rc=[];if(sl.length)rc.push(clamp(sl.reduce((a,x)=>a+(x.q||0),0)/sl.length*20,0,100));if(jn)rc.push(clamp(jn/2*100,0,100));
-  const cats=[['exec','Execution',avg(ex)],['health','Health',avg(he)],['growth','Growth',avg(gr)],['finance','Finance',avg(fi)],['recovery','Recovery',avg(rc)]];
-  const w=S().settings.scoreWeights;
-  const active=cats.filter(c=>c[2]!=null);
-  const tw=active.reduce((a,c)=>a+(+w[c[0]]||0),0);
-  const overall=tw?Math.round(active.reduce((a,c)=>a+c[2]*(+w[c[0]]||0),0)/tw):null;
-  return{cats,overall};
-}
-function scoreCardHtml(w0,compact){
-  const sc=scorecard(w0);
-  const cells=sc.cats.map(c=>'<div class="sc"><div class="n" style="color:'+(c[2]==null?'var(--ink-faint)':c[2]>=70?'var(--sage)':c[2]>=40?'var(--wheat)':'var(--clay)')+'">'+(c[2]==null?'\u2014':c[2])+'</div><div class="l">'+c[1]+'</div></div>').join('');
-  const ov='<div class="sc"><div class="n">'+(sc.overall==null?'\u2014':sc.overall)+'</div><div class="l">Overall</div></div>';
-  const expl=compact?'':'<details class="expl" style="margin-top:10px"><summary>How these are calculated</summary><p>Execution: Big-3 completion and progress-task throughput (5/week = 100). Health: workouts vs 3/week, sleep vs 7\u00bd h, habit consistency. Growth: skill practice vs 5 h/week, journal entries vs 3/week. Finance: weekly spending vs your monthly budget \u00f7 4.3 (under budget scores higher). Recovery: sleep quality and reflection days. Categories with no data are excluded and their weight is redistributed \u2014 nothing is punished for being unconfigured. Weights are editable in Settings.</p></details>';
-  return '<div class="scorebar">'+ov+cells+'</div>'+expl;
 }
 function startFocus(type,id,proj){
   if(ui.fTimer)clearInterval(ui.fTimer);
@@ -3124,7 +3080,6 @@ function vReview(){
   const stat=(n,l)=>'<div class="metric"><span class="n" style="font-size:23px">'+n+'</span><span class="l">'+l+'</span></div>';
   const head='<div class="sect-head"><div class="lead"><h2>Weekly Review</h2><p>The numbers tell you what happened; the questions tell you what to change. Fifteen minutes, once a week.</p></div>'+
     '<div class="actions"><div class="datenav"><button class="icon-btn" data-act="rev-week" data-id="-1">'+svg(I.chevL)+'</button><span class="cur">'+fmtD(w0)+' \u2013 '+fmtD(w6)+'</span><button class="icon-btn" data-act="rev-week" data-id="1">'+svg(I.chevR)+'</button>'+(!isCur?'<button class="btn sm" data-act="rev-today" style="margin-left:4px">This week</button>':'')+'</div></div></div>';
-  const score='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Balanced scorecard</h3></div>'+scoreCardHtml(w0,false)+'</div>';
   const stats='<div class="card" style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px">'+
     stat(tasksDone,'Tasks done')+stat(tasksNew,'Tasks created')+stat(overdue,'Overdue now')+(postponed?stat(postponed,'Postponed'):'')+
     stat(weekKindDone(w0,'progress'),'Progress')+stat(weekKindDone(w0,'maintenance'),'Maintenance')+
@@ -3162,7 +3117,7 @@ function vReview(){
     q('remove','What should be removed, delegated, or postponed?','Lighten the load\u2026')+
     q('outcomes','Next week\u2019s Big 3','1.\n2.\n3.')+
   '</div>';
-  return head+score+stats+mid+form;
+  return head+stats+mid+form;
 }
 
 /* ---------- VIEW: SETTINGS ---------- */
@@ -3172,7 +3127,7 @@ function vSettings(){
     if(n.sec){rows+='<div class="eyebrow" style="margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--line)">'+n.sec+'</div>';}
     else if(n.id!=='overview'){const pinned=(S().settings.pinned||[]).includes(n.id);rows+='<div class="set-row">'+svg(I[n.icon])+'<div class="txt">'+(TITLES[n.id]||n.label)+'</div><button class="pinbtn'+(pinned?' on':'')+'" data-act="tab-pin" data-id="'+n.id+'" aria-label="'+(pinned?'unpin':'pin')+' '+n.label+'" title="'+(pinned?'Unpin from top':'Pin to top')+'">'+svg(I.pin)+'</button><button class="chk'+(enabled(n.id)?' on':'')+'" data-act="tab-toggle" data-id="'+n.id+'" aria-label="toggle '+n.label+'">'+svg(I.check)+'</button></div>';}
   });
-  const gw=S().settings.goalWeights,sw=S().settings.scoreWeights;
+  const gw=S().settings.goalWeights;
   const wIn=(grp,k,label,v)=>'<div style="flex:1;min-width:86px"><label style="display:block;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:4px">'+label+'</label><input class="inp" type="number" min="0" data-change="'+grp+'" data-k="'+k+'" value="'+v+'"></div>';
   const areaRows=S().areas.map(a=>'<div class="row" data-drag-item data-id="'+a.id+'" style="padding:8px 2px"><span class="grip" data-grip>'+svg(I.grip)+'</span><div class="txt" style="'+(a.hidden?'opacity:.5':'')+'"><div class="t" style="font-size:13.5px">'+esc(a.name)+'</div></div><button class="btn sm" data-act="area-hide" data-id="'+a.id+'">'+(a.hidden?'Show':'Hide')+'</button><button class="icon-btn" data-act="area-rename" data-id="'+a.id+'">'+svg(I.edit)+'</button><button class="icon-btn del" data-act="area-del" data-id="'+a.id+'">'+svg(I.trash)+'</button></div>').join('');
   const acct=(typeof Sync!=='undefined'&&Sync.uid)?'<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Account &amp; sync</h3><span class="spacer faint" id="sync-status-txt" style="font-size:12px;color:var(--sage)">'+(Sync.status==='synced'?'✓ Synced':(Sync.status==='syncing'?'Syncing…':''))+'</span></div><div class="muted" style="font-size:13px;margin:0 0 12px">Signed in as <b style="color:var(--ink)">'+esc(Sync.email||'your account')+'</b> — your data syncs automatically across your devices.</div><button class="btn" data-act="sync-signout">Sign out</button></div>':'';
@@ -3184,7 +3139,7 @@ function vSettings(){
   '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Life areas</h3><span class="spacer faint" style="font-size:11.5px">drag to reorder</span></div><div data-draglist data-kind="areas">'+areaRows+'</div>'+
     '<div class="addbar" style="margin-top:10px"><input class="inp" id="ar-name" placeholder="New area\u2026" data-enter="area-add"><button class="btn sm" data-act="area-add">'+svg(I.plus)+'</button></div></div>'+
   '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Goal progress weights</h3></div><p class="faint" style="font-size:12px;margin:0 0 10px">How steps, linked projects and linked tasks blend into a goal\u2019s progress. Missing categories redistribute automatically.</p><div style="display:flex;gap:10px;flex-wrap:wrap">'+wIn('gweight','steps','Steps %',gw.steps)+wIn('gweight','projects','Projects %',gw.projects)+wIn('gweight','tasks','Tasks %',gw.tasks)+'</div></div>'+
-  '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Scorecard weights</h3></div><div style="display:flex;gap:10px;flex-wrap:wrap">'+wIn('sweight','exec','Execution',sw.exec)+wIn('sweight','health','Health',sw.health)+wIn('sweight','growth','Growth',sw.growth)+wIn('sweight','finance','Finance',sw.finance)+wIn('sweight','recovery','Recovery',sw.recovery)+'</div></div>'+
+  
   '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Data backup</h3></div><p class="muted" style="font-size:13px;margin:0 0 12px">Export a copy anytime \u2014 your data also syncs to the cloud automatically.</p>'+
   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" data-act="backup-open">'+svg(I.download)+'Export backup</button><button class="btn" data-act="restore-open">'+svg(I.upload)+'Restore backup</button></div>'+
   '<div class="faint" style="font-size:12px">'+(S().settings.lastBackup?'Last exported '+fmtDL(S().settings.lastBackup)+'.':'Never exported \u2014 do it once a week.')+'</div>'+
@@ -4115,7 +4070,6 @@ document.addEventListener('change',e=>{
   if(act==='todo-sort'){S().settings.todoSort=t.value;commit();return;}
   if(act==='todo-group'){S().settings.todoGroup=t.value;commit();return;}
   if(act==='gweight'&&t.dataset.k){S().settings.goalWeights[t.dataset.k]=Math.max(0,+t.value||0);commit();return;}
-  if(act==='sweight'&&t.dataset.k){S().settings.scoreWeights[t.dataset.k]=Math.max(0,+t.value||0);commit();return;}
   if(act==='focus-field'&&t.dataset.key){const ref=focusTask();if(ref&&ref.t){ref.t[t.dataset.key]=t.value;Store.save();}return;}
   if(act==='restore-file'){
     const f=t.files&&t.files[0];if(!f)return;
