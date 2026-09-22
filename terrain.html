@@ -3101,6 +3101,28 @@ function vReview(){
   const goalRows=S().goals.map(g=>{const c=goalCalc(g);const st=goalStatus(g,c.overall);const prev=(S().goalHist[g.id]||{})[addDays(weekSun(t),-7)];return '<div class="row" style="padding:7px 2px"><div class="txt"><div class="t" style="font-size:13px">'+esc(g.title)+'</div></div>'+(st?pill(st[0],'var(--'+st[1]+')','var(--'+st[1]+'-bg)'):'')+'<span class="mono faint" style="font-size:12px">'+c.overall+'%'+(prev!=null&&prev!==c.overall?' ('+(c.overall>prev?'+':'')+(c.overall-prev)+')':'')+'</span></div>';}).join('');
   const projRows=S().projects.map(p=>'<div class="row" style="padding:7px 2px"><div class="txt"><div class="t" style="font-size:13px">'+esc(p.name)+'</div></div><span class="mono faint" style="font-size:12px">'+projPct(p)+'%</span></div>').join('');
   const winsHtml=wkWins.length?wkWins.map(w=>'<div class="row" style="padding:6px 2px"><span style="font-size:13px">\ud83c\udfc6</span><div class="txt"><div class="t" style="font-size:13px">'+esc(w.text)+'</div></div><span class="tag">'+fmtD(w.date)+'</span></div>').join(''):'<p class="faint" style="font-size:12.5px;margin:2px 0">None logged.</p>';
+  /* Completed this week — the list behind the "Tasks done" count, so the same
+     items are counted and shown. A repeating to-do contributes one row per day
+     it was ticked (its recurLog), not one row overall. Project tasks aren't
+     here: marking one done doesn't record a date, so they can't be placed in
+     a week. Grouped by day, most recent first. */
+  const doneRows=[];
+  S().todos.forEach(x=>{
+    if(x.done&&inWk(x.completedAt))doneRows.push({d:x.completedAt,t:x});
+    (x.recurLog||[]).forEach(d=>{if(inWk(d))doneRows.push({d,t:x,rec:true});});
+  });
+  const byDay=new Map();
+  doneRows.sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0).forEach(r=>{if(!byDay.has(r.d))byDay.set(r.d,[]);byDay.get(r.d).push(r);});
+  const doneHtml=doneRows.length?[...byDay.entries()].map(([d,rows])=>
+    '<div class="eyebrow" style="margin:12px 0 2px">'+DOW[parseD(d).getDay()]+' · '+fmtD(d)+' · '+rows.length+'</div>'+
+    rows.map(r=>'<div class="row" style="padding:7px 2px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none"></span>'+
+      '<div class="txt"><div class="t" style="font-size:13.5px">'+esc(r.t.text)+'</div></div>'+
+      (r.rec?'<span class="recbadge">↻</span>':'')+
+      (r.t.kind==='maintenance'?'<span class="metachip">Maintenance</span>':'')+metaChips(r.t)+
+      (r.t.focusMin?'<span class="metachip">'+svg(I.clock)+fmtMin(r.t.focusMin)+'</span>':'')+'</div>').join('')
+  ).join(''):'<p class="faint" style="font-size:12.5px;margin:2px 0">Nothing ticked off this week yet.</p>';
+  const doneCard='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Completed this week</h3>'+
+    '<span class="spacer mono faint" style="font-size:12px">'+doneRows.length+'</span></div>'+doneHtml+'</div>';
   const mid='<div class="grid g2" style="margin-bottom:16px">'+
     '<div><div class="card" style="margin-bottom:16px"><div class="card-h"><h3>By life area</h3></div>'+(areaRows||'<p class="faint" style="font-size:12.5px;margin:2px 0">Link tasks to areas to see this.</p>')+'</div>'+
     '<div class="card"><div class="card-h"><h3>Wins</h3></div>'+winsHtml+'</div></div>'+
@@ -3117,7 +3139,7 @@ function vReview(){
     q('remove','What should be removed, delegated, or postponed?','Lighten the load\u2026')+
     q('outcomes','Next week\u2019s Big 3','1.\n2.\n3.')+
   '</div>';
-  return head+stats+mid+form;
+  return head+stats+doneCard+mid+form;
 }
 
 /* ---------- VIEW: SETTINGS ---------- */
