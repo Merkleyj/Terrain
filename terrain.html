@@ -3101,28 +3101,40 @@ function vReview(){
   const goalRows=S().goals.map(g=>{const c=goalCalc(g);const st=goalStatus(g,c.overall);const prev=(S().goalHist[g.id]||{})[addDays(weekSun(t),-7)];return '<div class="row" style="padding:7px 2px"><div class="txt"><div class="t" style="font-size:13px">'+esc(g.title)+'</div></div>'+(st?pill(st[0],'var(--'+st[1]+')','var(--'+st[1]+'-bg)'):'')+'<span class="mono faint" style="font-size:12px">'+c.overall+'%'+(prev!=null&&prev!==c.overall?' ('+(c.overall>prev?'+':'')+(c.overall-prev)+')':'')+'</span></div>';}).join('');
   const projRows=S().projects.map(p=>'<div class="row" style="padding:7px 2px"><div class="txt"><div class="t" style="font-size:13px">'+esc(p.name)+'</div></div><span class="mono faint" style="font-size:12px">'+projPct(p)+'%</span></div>').join('');
   const winsHtml=wkWins.length?wkWins.map(w=>'<div class="row" style="padding:6px 2px"><span style="font-size:13px">\ud83c\udfc6</span><div class="txt"><div class="t" style="font-size:13px">'+esc(w.text)+'</div></div><span class="tag">'+fmtD(w.date)+'</span></div>').join(''):'<p class="faint" style="font-size:12.5px;margin:2px 0">None logged.</p>';
-  /* Completed this week — the list behind the "Tasks done" count, so the same
-     items are counted and shown. A repeating to-do contributes one row per day
-     it was ticked (its recurLog), not one row overall. Project tasks aren't
-     here: marking one done doesn't record a date, so they can't be placed in
-     a week. Grouped by day, most recent first. */
+  /* Completed this week — to-dos, project tasks and goal steps together, each
+     row trailing its parent project or goal. A repeating to-do contributes one
+     row per day it was ticked (its recurLog), not one row overall. Its total is
+     therefore larger than the "Tasks done" stat above, which counts to-dos
+     only. Anything finished before completion dates were recorded has no date
+     to place it by and simply doesn't appear. Grouped by day, newest first. */
   const doneRows=[];
   S().todos.forEach(x=>{
     if(x.done&&inWk(x.completedAt))doneRows.push({d:x.completedAt,t:x});
     (x.recurLog||[]).forEach(d=>{if(inWk(d))doneRows.push({d,t:x,rec:true});});
   });
+  if(enabled('projects'))S().projects.forEach(pr=>(pr.tasks||[]).forEach(x=>{
+    if(x.status==='done'&&inWk(x.completedAt))doneRows.push({d:x.completedAt,t:x,src:'Project',parent:pr.name,col:pr.color||'clay'});
+  }));
+  if(enabled('goals'))S().goals.forEach(g=>(g.steps||[]).forEach(x=>{
+    if(x.done&&inWk(x.completedAt))doneRows.push({d:x.completedAt,t:x,src:'Goal',parent:g.title,col:goalColorName(g)});
+  }));
   const byDay=new Map();
   doneRows.sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0).forEach(r=>{if(!byDay.has(r.d))byDay.set(r.d,[]);byDay.get(r.d).push(r);});
   const doneHtml=doneRows.length?[...byDay.entries()].map(([d,rows])=>
     '<div class="eyebrow" style="margin:12px 0 2px">'+DOW[parseD(d).getDay()]+' · '+fmtD(d)+' · '+rows.length+'</div>'+
-    rows.map(r=>'<div class="row" style="padding:7px 2px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none"></span>'+
-      '<div class="txt"><div class="t" style="font-size:13.5px">'+esc(r.t.text)+'</div></div>'+
+    rows.map(r=>'<div class="row" style="padding:7px 2px"><span style="width:8px;height:8px;border-radius:50%;background:var(--'+(r.col||'accent')+');flex:none"></span>'+
+      '<div class="txt"><div class="t" style="font-size:13.5px">'+esc(r.t.text)+
+        (r.parent?'<span class="td-trail"><span class="td-arrow">→</span>'+esc(r.parent)+'</span>':'')+'</div></div>'+
       (r.rec?'<span class="recbadge">↻</span>':'')+
+      (r.src?'<span class="metachip">'+r.src+'</span>':'')+
       (r.t.kind==='maintenance'?'<span class="metachip">Maintenance</span>':'')+metaChips(r.t)+
       (r.t.focusMin?'<span class="metachip">'+svg(I.clock)+fmtMin(r.t.focusMin)+'</span>':'')+'</div>').join('')
   ).join(''):'<p class="faint" style="font-size:12.5px;margin:2px 0">Nothing ticked off this week yet.</p>';
+  const doneBy=k=>doneRows.filter(r=>(r.src||'To-Do')===k).length;
+  const doneMix=[['To-Do','to-dos'],['Project','project tasks'],['Goal','goal steps']].map(x=>doneBy(x[0])?doneBy(x[0])+' '+x[1]:'').filter(Boolean).join(' · ');
   const doneCard='<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Completed this week</h3>'+
-    '<span class="spacer mono faint" style="font-size:12px">'+doneRows.length+'</span></div>'+doneHtml+'</div>';
+    '<span class="spacer mono faint" style="font-size:12px">'+doneRows.length+'</span></div>'+
+    (doneMix?'<div class="faint" style="font-size:11.5px;margin:-2px 0 2px">'+doneMix+'</div>':'')+doneHtml+'</div>';
   const mid='<div class="grid g2" style="margin-bottom:16px">'+
     '<div><div class="card" style="margin-bottom:16px"><div class="card-h"><h3>By life area</h3></div>'+(areaRows||'<p class="faint" style="font-size:12.5px;margin:2px 0">Link tasks to areas to see this.</p>')+'</div>'+
     '<div class="card"><div class="card-h"><h3>Wins</h3></div>'+winsHtml+'</div></div>'+
@@ -3948,7 +3960,7 @@ const actions={
   ],onSave(v){if(!v.title)return;g.title=v.title;g.target=v.target||null;g.why=v.why;g.area=v.area||'';commit();}});},
   'goal-del'(el){const i=S().goals.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().goals.splice(i,1);commit();toast('Goal deleted',()=>{S().goals.splice(i,0,rm);commit();});},
   'step-add'(el){const g=S().goals.find(x=>x.id===el.dataset.goal);if(!g)return;const inp=document.querySelector('[data-enter="step-add"][data-goal="'+el.dataset.goal+'"]');const t=inp?inp.value.trim():'';if(!t)return;g.steps.push({id:uid(),text:t,done:false});commit();},
-  'step-toggle'(el){const g=S().goals.find(x=>x.id===el.dataset.goal);if(!g)return;const s=g.steps.find(x=>x.id===el.dataset.id);if(s){s.done=!s.done;commit();}},
+  'step-toggle'(el){const g=S().goals.find(x=>x.id===el.dataset.goal);if(!g)return;const s=g.steps.find(x=>x.id===el.dataset.id);if(s){s.done=!s.done;if(s.done)s.completedAt=todayStr();else delete s.completedAt;commit();}},
   'step-del'(el){const g=S().goals.find(x=>x.id===el.dataset.goal);if(!g)return;g.steps=g.steps.filter(x=>x.id!==el.dataset.id);commit();},
   'step-edit'(el){const g=S().goals.find(x=>x.id===el.dataset.goal);if(!g)return;const s=(g.steps||[]).find(x=>x.id===el.dataset.id);if(!s)return;openModal({title:'Edit step',ok:'Save',fields:[{key:'text',label:'Step',value:s.text}],onSave(v){if(!v.text)return;s.text=v.text;commit();}});},
   'goal-steps-more'(el){const id=el.dataset.id;if(ui.goalOpen.has(id))ui.goalOpen.delete(id);else ui.goalOpen.add(id);render();},
@@ -3974,7 +3986,7 @@ const actions={
     commit();}});},
   'proj-del'(el){const i=S().projects.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const[rm]=S().projects.splice(i,1);commit();toast('Project deleted',()=>{S().projects.splice(i,0,rm);commit();});},
   'ptask-add'(el){const p=S().projects.find(x=>x.id===el.dataset.proj);if(!p)return;const inp=document.querySelector('[data-enter="ptask-add"][data-proj="'+el.dataset.proj+'"]');const due=document.querySelector('[data-role="pdue"][data-proj="'+el.dataset.proj+'"]');const t=inp?inp.value.trim():'';if(!t)return;p.tasks.push({id:uid(),text:t,status:'todo',due:due&&due.value?due.value:null,goalId:p.goalId||'',area:p.area||''});commit();},
-  'ptask-cycle'(el){const p=S().projects.find(x=>x.id===el.dataset.proj);if(!p)return;const t=p.tasks.find(x=>x.id===el.dataset.id);if(t){t.status=nextStatus(t.status||'todo');if(t.status==='done')ui.peekDone.add(t.id);commit();}},
+  'ptask-cycle'(el){const p=S().projects.find(x=>x.id===el.dataset.proj);if(!p)return;const t=p.tasks.find(x=>x.id===el.dataset.id);if(t){t.status=nextStatus(t.status||'todo');if(t.status==='done'){ui.peekDone.add(t.id);t.completedAt=todayStr();}else delete t.completedAt;commit();}},
   'ptask-del'(el){const p=S().projects.find(x=>x.id===el.dataset.proj);if(!p)return;p.tasks=p.tasks.filter(x=>x.id!==el.dataset.id);commit();},
 
   /* habits */
