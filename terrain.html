@@ -896,6 +896,7 @@ const Store={
     if(s.settings.accent==='maroon')s.settings.accent='rose';   // Maroon and Navy were retired;
     if(s.settings.accent==='navy')s.settings.accent='slate';    // move to the nearest survivor
     if(!['sage','ocean','teal','rose','slate'].includes(s.settings.accent))s.settings.accent='sage';
+    s.settings.weekStart=s.settings.weekStart===1?1:0;   // 0 = Sunday, 1 = Monday
     if(!Array.isArray(s.settings.pinned))s.settings.pinned=[];
     if(typeof s.settings.lastBackup!=='string')s.settings.lastBackup='';
     if(!s.settings.goalWeights)s.settings.goalWeights={steps:30,projects:40,tasks:30};
@@ -1671,13 +1672,14 @@ function vCalendar(){
     return head+'<div class="card">'+wtool+'<div class="cal-grid cal-week">'+wcells.join('')+'</div></div>';
   }
   const m=parseD(ui.calMonth), year=m.getFullYear(), month=m.getMonth();
-  const startDow=m.getDay();
+  const wsd=weekStartDow();
+  const startDow=(m.getDay()-wsd+7)%7;
   const daysInMonth=new Date(year,month+1,0).getDate();
   const totalCells=Math.ceil((startDow+daysInMonth)/7)*7;
   const gridStart=addDays(ui.calMonth,-startDow);
   const cells=[];
   for(let i=0;i<totalCells;i++){const ds=addDays(gridStart,i);cells.push(calCell(ds,parseD(ds).getMonth()===month));}
-  const dow=DOW.map(d=>'<span>'+d+'</span>').join('');
+  const dow=DOW.slice(wsd).concat(DOW.slice(0,wsd)).map(d=>'<span>'+d+'</span>').join('');
   const toolbar='<div class="cal-toolbar"><div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous month">'+svg(I.chevL)+'</button><span class="cal-title">'+MONL[month]+' '+year+'</span><button class="icon-btn" data-act="cal-next" aria-label="next month">'+svg(I.chevR)+'</button><button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+modes+'<div class="cal-legend">'+legend+'</div></div>';
   return head+'<div class="card">'+toolbar+'<div class="cal-dow">'+dow+'</div><div class="cal-grid">'+cells.join('')+'</div></div>';
 }
@@ -2529,7 +2531,12 @@ function vSession(){
 function parseTimeStr(str){if(!str)return 0;const p=String(str).split(':').map(x=>parseFloat(x)||0);if(p.length===1)return Math.round(p[0]*60);if(p.length===2)return Math.round(p[0]*60+p[1]);return Math.round(p[0]*3600+p[1]*60+p[2]);}
 function fmtSec(sec){sec=Math.round(sec);const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),ss=sec%60;return(h?h+':'+String(m).padStart(2,'0'):String(m))+':'+String(ss).padStart(2,'0');}
 function paceStr(sec,mi){if(!mi||!sec)return'\u2014';return fmtSec(sec/mi)+'/mi';}
-function weekSun(ds){return addDays(ds,-parseD(ds).getDay());}
+/* The first day of the week, per Settings. Everything that thinks in weeks —
+   the calendar's Week view, the Weekly Review, weekly mileage and workout
+   counts, goal history — goes through weekSun(), so changing this moves them
+   all together. Guarded because ui is built before the store has loaded. */
+function weekStartDow(){try{return S().settings.weekStart===1?1:0;}catch(e){return 0;}}
+function weekSun(ds){const st=weekStartDow();return addDays(ds,-((parseD(ds).getDay()-st+7)%7));}
 function genPlan(race,weeks,dist,runDays,longDow){
   runDays=(runDays&&runDays.length)?runDays.map(Number):[6];
   longDow=(longDow==null||longDow==='')?runDays[runDays.length-1]:+longDow;
@@ -3169,7 +3176,7 @@ function vSettings(){
   acct+
   '<div class="grid g2"><div><div class="card"><div class="card-h"><h3>Tabs</h3><span class="spacer faint" style="font-size:12px">Overview is always on</span></div>'+rows+'</div></div>'+
   '<div>'+
-  '<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Appearance</h3></div><div class="set-row" style="border:none;padding-left:0;padding-right:0">'+svg(I.moon)+'<div class="txt">Dark mode<div class="faint" style="font-size:12px;font-weight:500">Easier on the eyes at night. TV mode is always dark.</div></div><button class="chk'+(S().settings.theme==='dark'?' on':'')+'" data-act="theme-toggle" role="switch" aria-checked="'+(S().settings.theme==='dark'?'true':'false')+'" aria-label="toggle dark mode">'+svg(I.check)+'</button></div><div class="set-row" style="border:none;padding-left:0;padding-right:0;flex-wrap:wrap;row-gap:10px">'+svg(I.sun)+'<div class="txt">Accent color<div class="faint" style="font-size:12px;font-weight:500">Buttons, highlights and the banner — '+esc((ACCENTS.find(a=>a.id===S().settings.accent)||ACCENTS[0]).l)+'</div></div><div class="swatches" role="radiogroup" aria-label="Accent color">'+ACCENTS.map(a=>'<button class="swatch'+((S().settings.accent||'sage')===a.id?' on':'')+'" data-act="accent-set" data-id="'+a.id+'" role="radio" aria-checked="'+((S().settings.accent||'sage')===a.id)+'" aria-label="'+a.l+'" title="'+a.l+'" style="--sw:'+(S().settings.theme==='dark'?a.dark:a.light)+'"></button>').join('')+'</div></div></div>'+'<div class="card"><div class="card-h"><h3>Profile</h3></div><div class="field" style="margin:0"><label>Display name \u2014 used in the dashboard greeting</label><input class="inp" value="'+esc(S().settings.name||'')+'" placeholder="Your name" data-change="set-name"></div></div>'+
+  '<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Appearance</h3></div><div class="set-row" style="border:none;padding-left:0;padding-right:0">'+svg(I.moon)+'<div class="txt">Dark mode<div class="faint" style="font-size:12px;font-weight:500">Easier on the eyes at night. TV mode is always dark.</div></div><button class="chk'+(S().settings.theme==='dark'?' on':'')+'" data-act="theme-toggle" role="switch" aria-checked="'+(S().settings.theme==='dark'?'true':'false')+'" aria-label="toggle dark mode">'+svg(I.check)+'</button></div><div class="set-row" style="border:none;padding-left:0;padding-right:0;flex-wrap:wrap;row-gap:10px">'+svg(I.sun)+'<div class="txt">Accent color<div class="faint" style="font-size:12px;font-weight:500">Buttons, highlights and the banner — '+esc((ACCENTS.find(a=>a.id===S().settings.accent)||ACCENTS[0]).l)+'</div></div><div class="swatches" role="radiogroup" aria-label="Accent color">'+ACCENTS.map(a=>'<button class="swatch'+((S().settings.accent||'sage')===a.id?' on':'')+'" data-act="accent-set" data-id="'+a.id+'" role="radio" aria-checked="'+((S().settings.accent||'sage')===a.id)+'" aria-label="'+a.l+'" title="'+a.l+'" style="--sw:'+(S().settings.theme==='dark'?a.dark:a.light)+'"></button>').join('')+'</div></div></div>'+'<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Week starts on</h3></div><p class="faint" style="font-size:12px;margin:0 0 10px">Used by the calendar’s Week view, the Weekly Review, and every weekly total.</p><div class="chips">'+[[0,'Sunday'],[1,'Monday']].map(o=>'<button class="chip'+((S().settings.weekStart===1?1:0)===o[0]?' on':'')+'" data-act="week-start" data-id="'+o[0]+'">'+o[1]+'</button>').join('')+'</div></div>'+'<div class="card"><div class="card-h"><h3>Profile</h3></div><div class="field" style="margin:0"><label>Display name \u2014 used in the dashboard greeting</label><input class="inp" value="'+esc(S().settings.name||'')+'" placeholder="Your name" data-change="set-name"></div></div>'+
   '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Life areas</h3><span class="spacer faint" style="font-size:11.5px">drag to reorder</span></div><div data-draglist data-kind="areas">'+areaRows+'</div>'+
     '<div class="addbar" style="margin-top:10px"><input class="inp" id="ar-name" placeholder="New area\u2026" data-enter="area-add"><button class="btn sm" data-act="area-add">'+svg(I.plus)+'</button></div></div>'+
   '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Goal progress weights</h3></div><p class="faint" style="font-size:12px;margin:0 0 10px">How steps, linked projects and linked tasks blend into a goal\u2019s progress. Missing categories redistribute automatically.</p><div style="display:flex;gap:10px;flex-wrap:wrap">'+wIn('gweight','steps','Steps %',gw.steps)+wIn('gweight','projects','Projects %',gw.projects)+wIn('gweight','tasks','Tasks %',gw.tasks)+'</div></div>'+
@@ -3392,6 +3399,17 @@ const actions={
   /* settings */
   'tab-toggle'(el){const t=S().settings.tabs;const id=el.dataset.id;t[id]=t[id]===false?true:false;commit();},
   'accent-set'(el){S().settings.accent=el.dataset.id;commit();},
+  'week-start'(el){
+    // Re-anchor the two views that hold a week. If you were looking at the
+    // current week, stay on the current week; if you'd paged back, stay near
+    // the week you were reading rather than jumping to today.
+    const t=todayStr(),was=ui.reviewWeek||weekSun(t);
+    const onCurrent=t>=was&&t<=addDays(was,6);
+    S().settings.weekStart=+el.dataset.id===1?1:0;
+    ui.calWeek=weekSun(todayStr());
+    ui.reviewWeek=weekSun(onCurrent?t:was);
+    commit();
+  },
   'theme-toggle'(){S().settings.theme=S().settings.theme==='dark'?'light':'dark';commit();},
   'tab-pin'(el){const id=el.dataset.id;const p=S().settings.pinned;const i=p.indexOf(id);if(i>=0)p.splice(i,1);else p.push(id);commit();},
   'backup-open'(){
@@ -4497,7 +4515,7 @@ const Sync={
   }
 };
 /* ---------- boot ---------- */
-(async function(){await Store.load();render();Sync.init();})();
+(async function(){await Store.load();ui.calWeek=weekSun(ui.calWeek);ui.reviewWeek=null;render();Sync.init();})();
 })();
 </script>
 <!-- PWA: register the service worker for offline use -->
