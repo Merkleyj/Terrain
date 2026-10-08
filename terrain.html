@@ -950,6 +950,29 @@ const ui={view:'overview',moreOpen:false,qaOpen:false,qaMode:'main',tv:false,tvC
   calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',macroFoodPage:0,rvOpen:new Set(),rvEdit:null,goalOpen:new Set(),goalShowDone:new Set(),projOpen:new Set(),projShowDone:new Set(),big3Date:todayStr(),focus:null,fTimer:null,skTimer:null,skTick:null,
   todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all'};
 
+/* Day- and period-scoped views open on the current day. They used to keep
+   whatever date was last used, so the Daily Checklist, Macros and Big 3 would
+   still be showing days ago until you noticed and changed them. Every tab
+   switch re-anchors them, and so does coming back to the app on a later day —
+   leave it open overnight and the morning's checklist is today's, not
+   yesterday's. Dates set deliberately on the way in (a calendar day opened
+   into Habits or Macros, a quick-log entry) assign the view directly rather
+   than going through nav(), so those still land where they meant to. */
+function resetToToday(){
+  const t=todayStr();
+  ui.habitDate=t; ui.macroDate=t; ui.jrnlDate=t; ui.big3Date=t;
+  ui.calMonth=firstOfMonth(t); ui.calWeek=weekSun(t); ui.reviewWeek=weekSun(t);
+  ui.budgetMonth=firstOfMonth(t);
+}
+let uiDay=todayStr();
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden)return;
+  const t=todayStr();
+  if(t===uiDay)return;
+  uiDay=t; resetToToday();
+  if(ui.tv)tvPaint(); else render();
+});
+
 /* ---------- computed ---------- */
 function habitStat(date){const h=S().habits,log=S().habitLog[date]||{};const done=h.filter(x=>log[x.id]).length;return{done,total:h.length,pct:pct(done,h.length)};}
 function currentStreak(){
@@ -3328,7 +3351,7 @@ function getInput(id){const e=document.getElementById(id);return e?e.value.trim(
 function num(id){const e=document.getElementById(id);return e&&e.value!==''?+e.value:0;}
 
 const actions={
-  nav(el){ui.view=el.dataset.id;ui.peekDone.clear();closeMore();closeQa();render();window.scrollTo(0,0);},
+  nav(el){ui.view=el.dataset.id;ui.peekDone.clear();resetToToday();closeMore();closeQa();render();window.scrollTo(0,0);},
   'more-open'(){openMore();},
   'more-close'(){closeMore();},
   'sync-signout'(){if(typeof Sync!=='undefined')Sync.signOut();},
