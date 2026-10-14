@@ -5,11 +5,12 @@
    - Other GETs (fonts, favicons, etc.): cache-first, then network, and cache
      the response for next time so the app looks right offline after first run.
    Bump CACHE when you change terrain.html so clients pick up the new version. */
-const CACHE = 'terrain-v75';
+const CACHE = 'terrain-v76';
 const APP_SHELL = 'terrain.html';
 const ASSETS = [
   APP_SHELL,
   'supabase.min.js',
+  'sync-core.js',
   'manifest.webmanifest',
   'icon-192.png',
   'icon-512.png',

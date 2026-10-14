@@ -18,6 +18,7 @@ document.querySelector('meta[name="theme-color"]').setAttribute("content","#1314
 <link rel="icon" href="icon-192.png">
 <!-- Firebase (cloud sync across devices) -->
 <script src="supabase.min.js"></script>
+<script src="sync-core.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -948,7 +949,7 @@ function enabled(id){
 /* ---------- transient ui state ---------- */
 const ui={view:'overview',moreOpen:false,qaOpen:false,qaMode:'main',tv:false,tvClock:null,habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
   calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',macroFoodPage:0,rvOpen:new Set(),rvEdit:null,goalOpen:new Set(),goalShowDone:new Set(),projOpen:new Set(),projShowDone:new Set(),big3Date:todayStr(),focus:null,fTimer:null,skTimer:null,skTick:null,
-  todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all'};
+  todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all',snaps:null};
 
 /* Day- and period-scoped views open on the current day. They used to keep
    whatever date was last used, so the Daily Checklist, Macros and Big 3 would
@@ -1892,6 +1893,13 @@ function goalOpts(){return [noneOpt].concat(S().goals.map(g=>({v:g.id,l:g.title}
 function projOpts(){return [noneOpt].concat(S().projects.map(p=>({v:p.id,l:p.name})));}
 function readingOpts(){return [noneOpt].concat(S().reading.map(r=>({v:r.id,l:(r.type==='podcast'?'\ud83c\udfa7 ':'\ud83d\udcd6 ')+r.title})));}
 function selOpts(list){return [noneOpt].concat(list.map(x=>({v:x[0],l:x[1]})));}
+function snapReason(r){
+  if(r==='before-conflict')return 'Before another device’s version was adopted';
+  if(r==='before-catch-up')return 'Before catching up with the cloud';
+  if(r==='before-baseline')return 'Before first sync after the update';
+  if(r==='before-restore')return 'Replaced by a restore';
+  return 'Automatic backup';
+}
 function metaChips(t){
   let out='';
   if(t.area&&areaName(t.area))out+='<span class="metachip">'+esc(areaName(t.area))+'</span>';
@@ -3186,6 +3194,8 @@ function vReview(){
 
 /* ---------- VIEW: SETTINGS ---------- */
 function vSettings(){
+  // Snapshot list comes from async storage; fetch once, then re-render.
+  if(ui.snaps==null&&Sync&&Sync.core){ui.snaps=[];Sync.core.listSnapshots().then(l=>{ui.snaps=l;render();},()=>{});}
   let rows='';
   NAV.forEach(n=>{
     if(n.sec){rows+='<div class="eyebrow" style="margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--line)">'+n.sec+'</div>';}
@@ -3204,7 +3214,7 @@ function vSettings(){
     '<div class="addbar" style="margin-top:10px"><input class="inp" id="ar-name" placeholder="New area\u2026" data-enter="area-add"><button class="btn sm" data-act="area-add">'+svg(I.plus)+'</button></div></div>'+
   '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Goal progress weights</h3></div><p class="faint" style="font-size:12px;margin:0 0 10px">How steps, linked projects and linked tasks blend into a goal\u2019s progress. Missing categories redistribute automatically.</p><div style="display:flex;gap:10px;flex-wrap:wrap">'+wIn('gweight','steps','Steps %',gw.steps)+wIn('gweight','projects','Projects %',gw.projects)+wIn('gweight','tasks','Tasks %',gw.tasks)+'</div></div>'+
   
-  '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Data backup</h3></div><p class="muted" style="font-size:13px;margin:0 0 12px">Export a copy anytime \u2014 your data also syncs to the cloud automatically.</p>'+
+  '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Recovery snapshots</h3><span class="spacer faint" style="font-size:11.5px">'+(ui.snaps?ui.snaps.length:0)+' kept</span></div><p class="muted" style="font-size:13px;margin:0 0 12px">A copy of this device’s data is saved automatically before anything replaces it — for example when another device’s version is adopted. The most recent '+SyncCore.MAX_SNAPSHOTS+' are kept.</p>'+(ui.snaps&&ui.snaps.length?ui.snaps.map(sn=>'<div class="row" style="padding:8px 2px"><div class="txt"><div class="t" style="font-size:13.5px">'+fmtDL(todayStr(new Date(sn.ts)))+' · '+new Date(sn.ts).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+'</div><div class="sub">'+esc(snapReason(sn.reason))+' · '+((sn.bytes||0)<1024?'under 1':Math.round((sn.bytes||0)/1024))+' KB</div></div><button class="btn sm" data-act="snap-restore" data-id="'+esc(sn.id)+'">Restore</button></div>').join(''):'<p class="faint" style="font-size:12.5px;margin:2px 0">No snapshots yet — one is written the first time something replaces this device’s data.</p>')+'</div>'+'<div class="card" style="margin-top:16px"><div class="card-h"><h3>Data backup</h3></div><p class="muted" style="font-size:13px;margin:0 0 12px">Export a copy anytime \u2014 your data also syncs to the cloud automatically.</p>'+
   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" data-act="backup-open">'+svg(I.download)+'Export backup</button><button class="btn" data-act="restore-open">'+svg(I.upload)+'Restore backup</button></div>'+
   '<div class="faint" style="font-size:12px">'+(S().settings.lastBackup?'Last exported '+fmtDL(S().settings.lastBackup)+'.':'Never exported \u2014 do it once a week.')+'</div>'+
   '</div>'+
@@ -3301,12 +3311,13 @@ function openModal(opts){
   modalChange=opts.onChange||null;
   const fields=opts.fields.map(fl=>{
     let inp;
-    if(fl.type==='rich')inp=richEditor(fl.key,fl.value||'',fl.placeholder);
+    if(fl.type==='note')inp='<p class="muted" style="font-size:13px;margin:0;line-height:1.5">'+esc(fl.value||'')+'</p>';
+    else if(fl.type==='rich')inp=richEditor(fl.key,fl.value||'',fl.placeholder);
     else if(fl.type==='textarea')inp='<textarea class="inp" data-k="'+fl.key+'" placeholder="'+esc(fl.placeholder||'')+'">'+esc(fl.value||'')+'</textarea>';
     else if(fl.type==='select')inp='<select class="inp" data-k="'+fl.key+'">'+fl.options.map(o=>'<option value="'+esc(o.v)+'"'+(String(fl.value)===String(o.v)?' selected':'')+'>'+esc(o.l)+'</option>').join('')+'</select>';
     else if(fl.type==='days')inp='<div class="daypick" data-k="'+fl.key+'">'+['Su','Mo','Tu','We','Th','Fr','Sa'].map((d,i)=>'<button type="button" class="daychip'+((fl.value||[]).indexOf(i)>=0?' on':'')+'" data-act="daychip" data-d="'+i+'">'+d+'</button>').join('')+'</div>';
     else inp='<input class="inp" data-k="'+fl.key+'" type="'+(fl.type||'text')+'" value="'+esc(fl.value==null?'':fl.value)+'" placeholder="'+esc(fl.placeholder||'')+'"'+(fl.type==='number'?' inputmode="'+(fl.dec?'decimal':'numeric')+'" step="'+(fl.dec?'any':'1')+'"':'')+'>';
-    return '<div class="field'+(fl.half?' half':'')+'"'+(fl.showWhen?' data-cond-key="'+fl.showWhen.key+'" data-cond-vals="'+fl.showWhen.vals.join('|')+'"':'')+'><label>'+esc(fl.label)+'</label>'+inp+'</div>';
+    return '<div class="field'+(fl.half?' half':'')+'"'+(fl.showWhen?' data-cond-key="'+fl.showWhen.key+'" data-cond-vals="'+fl.showWhen.vals.join('|')+'"':'')+'>'+(fl.label?'<label>'+esc(fl.label)+'</label>':'')+inp+'</div>';
   });
   // group halves into rows
   let body='';const flds=opts.fields;
@@ -3422,6 +3433,21 @@ const actions={
   /* settings */
   'tab-toggle'(el){const t=S().settings.tabs;const id=el.dataset.id;t[id]=t[id]===false?true:false;commit();},
   'accent-set'(el){S().settings.accent=el.dataset.id;commit();},
+  'snap-restore'(el){
+    const id=el.dataset.id;
+    const sn=(ui.snaps||[]).find(x=>x.id===id);
+    openModal({title:'Restore this snapshot?',ok:'Restore',fields:[
+      {key:'note',type:'note',label:'',value:'This replaces everything on this device with the copy saved '+(sn?fmtDL(todayStr(new Date(sn.ts))):'earlier')+'. Your current data is snapshotted first, and the restored copy syncs to your other devices.'}
+    ],onSave(){
+      if(!Sync.core)return;
+      Sync.core.restoreSnapshot(id).then(r=>{
+        if(!r||!r.ok){toast('That snapshot could not be read');return;}
+        ui.snaps=null;
+        try{Sync.push(Store.state,JSON.stringify(Store.state));}catch(e){}
+        toast('Snapshot restored');
+      });
+    }});
+  },
   'week-start'(el){
     // Re-anchor the two views that hold a week. If you were looking at the
     // current week, stay on the current week; if you'd paged back, stay near
@@ -4256,7 +4282,47 @@ document.addEventListener('keydown',e=>{
 const SUPABASE_URL='https://api.terrain-life.com';
 const SUPABASE_KEY='sb_publishable_o5gw22bIdHOHRll-EjQXbg_xLoOfPY4';
 const Sync={
-  active:false, sb:null, uid:null, email:'', channel:null, lastUpdatedAt:0, _t:null, status:'',
+  active:false, sb:null, uid:null, email:'', channel:null, core:null, _t:null, status:'',
+  /* Every push goes through SyncCore, which only writes when it can prove it is
+     building on the cloud's current revision. The old rule here compared wall
+     clocks and blind-upserted, so a device with a fast clock could overwrite
+     days of someone else's work. See sync-core.js and test/sync.test.js. */
+  buildCore(){
+    const self=this;
+    const meta=k=>Store.key+':sync:'+k;
+    this.core=SyncCore.createSync({
+      backend:{
+        async fetch(){
+          const r=await self.sb.from('terrain_state').select('data,updated_at').eq('user_id',self.uid).maybeSingle();
+          if(r.error||!r.data)return null;
+          return {rev:+(r.data.updated_at||0), data:r.data.data};
+        },
+        async insert(row){
+          const r=await self.sb.from('terrain_state').insert({user_id:self.uid,data:row.data,updated_at:row.rev});
+          if(r.error)return {ok:false,conflict:true};
+          return {ok:true};
+        },
+        async casUpdate(o){
+          // Conditional update: matches nothing once the revision has moved on.
+          const r=await self.sb.from('terrain_state')
+            .update({data:o.data,updated_at:o.rev})
+            .eq('user_id',self.uid).eq('updated_at',o.baseRev).select('updated_at');
+          if(r.error)return {ok:false};
+          return {ok:!!(r.data&&r.data.length)};
+        }
+      },
+      store:{
+        async getState(){const r=await window.storage.get(Store.key);return r&&r.value?r.value:null;},
+        async setState(json){await window.storage.set(Store.key,json);},
+        async getMeta(k){const r=await window.storage.get(meta(k));return r&&r.value!=null?r.value:null;},
+        async setMeta(k,v){await window.storage.set(meta(k),v);},
+        async delMeta(k){try{await window.storage.delete(meta(k));}catch(e){}}
+      },
+      notify(msg){try{toast(msg);}catch(e){}},
+      onAdopt(st){try{Store.state=st;Store.ensure();render();}catch(e){}},
+      importClockOf(st){return st&&+st.importClock||0;}
+    });
+  },
   init(){
     if(typeof supabase==='undefined'){console.warn('Supabase unavailable — running on this device only');return;}
     try{this.sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){this.sb=null;}
@@ -4278,46 +4344,24 @@ const Sync={
   async onUser(user){
     this.uid=user.id;
     this.email=user.email||'';
-    let remote=null;
-    try{const r=await this.sb.from('terrain_state').select('data,updated_at').eq('user_id',this.uid).maybeSingle();remote=r.data;}catch(e){}
-    const local=S();
-    const localTs=+(local.updatedAt||0);
-    if(remote&&remote.data){
-      let rstate=null;try{rstate=JSON.parse(remote.data);}catch(e){}
-      const remoteTs=+(remote.updated_at||0);
-      if(rstate&&remoteTs>=localTs){
-        try{await window.storage.set(Store.key+':bak:presync',JSON.stringify(local));}catch(e){}
-        this.lastUpdatedAt=remoteTs;
-        this.applyRemote(rstate);
-      }else{
-        await this.pushNow(local);
-      }
-    }else{
-      await this.pushNow(local);
-    }
+    this.buildCore();
+    try{await this.core.connect();}catch(e){console.warn('sync connect failed',e);}
     this.active=true;
     this.attachListener();
     this.setStatus('synced');
   },
-  applyRemote(rstate){
-    try{Store.state=rstate;Store.ensure();}catch(e){return;}
-    try{window.storage.set(Store.key,JSON.stringify(Store.state));}catch(e){}
-    try{render();}catch(e){}
-  },
-  async pushNow(state){
-    if(!this.sb||!this.uid)return;
-    const ts=+(state.updatedAt||Date.now());
-    this.lastUpdatedAt=ts;
-    try{await this.sb.from('terrain_state').upsert({user_id:this.uid,data:JSON.stringify(state),updated_at:ts});}catch(e){}
-  },
+  /* A local save. Mark the device dirty immediately so an interrupted push is
+     still known to be pending, then push on a short debounce. */
   push(state,json){
-    if(!this.active||!this.sb||!this.uid)return;
+    if(!this.core)return;
     const self=this;
+    try{this.core.markDirty();}catch(e){}
+    if(!this.active)return;
     clearTimeout(this._t);
     this._t=setTimeout(function(){
-      const ts=+(state.updatedAt||Date.now());
-      self.lastUpdatedAt=ts;
-      self.sb.from('terrain_state').upsert({user_id:self.uid,data:json||JSON.stringify(state),updated_at:ts}).then(function(){},function(){});
+      self.core.push(Store.state).then(function(r){
+        self.setStatus(r&&r.status==='pushed'?'synced':'');
+      },function(){});
     },500);
   },
   attachListener(){
@@ -4326,12 +4370,9 @@ const Sync={
     this.channel=this.sb.channel('terrain-state-'+this.uid)
       .on('postgres_changes',{event:'*',schema:'public',table:'terrain_state',filter:'user_id=eq.'+this.uid},function(payload){
         const d=payload.new;
-        if(!d||!d.data)return;
-        const remoteTs=+(d.updated_at||0);
-        if(remoteTs>(self.lastUpdatedAt||0)){
-          let rstate=null;try{rstate=JSON.parse(d.data);}catch(e){}
-          if(rstate){self.lastUpdatedAt=remoteTs;self.applyRemote(rstate);}
-        }
+        if(!d||!d.data||!self.core)return;
+        // Our own write echoes back; the core ignores anything matching our base.
+        self.core.onRemote({rev:+(d.updated_at||0),data:d.data}).then(function(){},function(){});
       })
       .subscribe();
   },
@@ -4538,6 +4579,10 @@ const Sync={
   }
 };
 /* ---------- boot ---------- */
+/* Debug handle. The app lives in a closure; this makes its state reachable
+   from the console for diagnosing sync problems on a real device. It exposes
+   nothing a script on this page couldn't already read from localStorage. */
+window.Terrain={Store:Store,Sync:Sync,ui:ui,SyncCore:typeof SyncCore!=='undefined'?SyncCore:null};
 (async function(){await Store.load();ui.calWeek=weekSun(ui.calWeek);ui.reviewWeek=null;render();Sync.init();})();
 })();
 </script>
