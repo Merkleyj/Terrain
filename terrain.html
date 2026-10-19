@@ -298,6 +298,19 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .stars{display:inline-flex;gap:2px;color:var(--wheat)}
 .stars svg{width:14px;height:14px}
 
+/* span preview: our own mini-month under an event's end date */
+.span-prev{margin-top:2px}
+.sp-wrap{display:flex;gap:14px;flex-wrap:wrap}
+.sp-m{flex:1;min-width:186px}
+.sp-mh{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px}
+.sp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.sp-dow{text-align:center;font-size:9.5px;font-weight:700;color:var(--ink-faint);padding-bottom:2px}
+.sp-d{aspect-ratio:1;border:none;background:none;border-radius:6px;font:inherit;font-size:11.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;padding:0;display:grid;place-items:center;transition:.12s}
+.sp-d:hover{background:var(--surface-2);color:var(--ink)}
+.sp-d.sp-pad{visibility:hidden;cursor:default}
+.sp-d.on{background:var(--accent-bg);color:var(--accent)}
+.sp-d.start,.sp-d.end{background:var(--accent);color:var(--paper)}
+.sp-sum{margin-top:8px;font-size:12px;font-weight:600;color:var(--ink-soft)}
 /* calendar */
 .cal-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .cal-title{font-family:var(--serif);font-weight:600;font-size:20px;letter-spacing:-.01em;min-width:172px}
@@ -1798,6 +1811,7 @@ function openAddEntry(date){
   // time and a place where a meeting takes a link.
   fields.push({key:'end',label:'Until (optional)',type:'time',half:true,showWhen:{key:'type',vals:['appointment']}});
   fields.push({key:'endDate',label:'End date (optional)',type:'date',half:true,showWhen:{key:'type',vals:['event']}});
+  fields.push({key:'spanprev',label:'',type:'spanpreview',showWhen:{key:'type',vals:['event']}});
   fields.push({key:'loc',label:'Location (optional)',placeholder:'e.g. Dr. Chen — 4th St',showWhen:{key:'type',vals:['appointment']}});
   fields.push({key:'link',label:'Meeting link',placeholder:'https://…',half:true,showWhen:{key:'type',vals:['meeting']}});
   openModal({title:'Add to calendar',ok:'Add',fields,onSave(v){
@@ -3328,12 +3342,47 @@ let modalSave=null,modalChange=null;
 // Set another field's value from inside an onChange hook (used for cascades
 // like project → goal → life area).
 function setModalField(key,val){const e=document.querySelector('#modal-root [data-k="'+key+'"]');if(e&&val!=null&&e.value!==val)e.value=val;}
+/* The browser draws the native date-picker popup, so a span can't be shown
+   inside it. This is our own little month under the field instead: the covered
+   days are highlighted, and tapping one sets the end date. A span crossing a
+   month boundary renders both months. */
+function spanMonth(mStart,startD,endD){
+  const m=parseD(mStart), year=m.getFullYear(), month=m.getMonth();
+  const wsd=weekStartDow();
+  const lead=(m.getDay()-wsd+7)%7;
+  const days=new Date(year,month+1,0).getDate();
+  const head=DOW.slice(wsd).concat(DOW.slice(0,wsd)).map(d=>'<span class="sp-dow">'+d[0]+'</span>').join('');
+  let cells='';
+  for(let i=0;i<lead;i++)cells+='<span class="sp-d sp-pad"></span>';
+  for(let i=1;i<=days;i++){
+    const ds=todayStr(new Date(year,month,i));
+    const inSpan=endD?(ds>=startD&&ds<=endD):(ds===startD);
+    cells+='<button type="button" class="sp-d'+(inSpan?' on':'')+(ds===startD?' start':'')+(endD&&ds===endD?' end':'')+'" data-spanpick="'+ds+'">'+i+'</button>';
+  }
+  return '<div class="sp-m"><div class="sp-mh">'+MONL[month]+' '+year+'</div><div class="sp-grid">'+head+cells+'</div></div>';
+}
+function spanPreviewHtml(startD,endD){
+  if(!startD)return '<p class="faint" style="font-size:12px;margin:0">Pick a date to see the span.</p>';
+  const end=(endD&&endD>startD)?endD:'';
+  const months=[firstOfMonth(startD)];
+  if(end&&firstOfMonth(end)!==months[0])months.push(firstOfMonth(end));
+  const n=end?diffDays(end,startD)+1:1;
+  return '<div class="sp-wrap">'+months.map(mm=>spanMonth(mm,startD,end)).join('')+'</div>'+
+    '<div class="sp-sum">'+(end?fmtD(startD)+' – '+fmtD(end)+' · '+n+' days':fmtD(startD)+' · single day')+'</div>';
+}
+function refreshSpanPreview(){
+  const host=document.querySelector('#modal-root [data-spanpreview]');
+  if(!host)return;
+  const g=k=>{const e=document.querySelector('#modal-root [data-k="'+k+'"]');return e?e.value:'';};
+  host.innerHTML=spanPreviewHtml(g(host.dataset.spanpreview||'date'),g(host.dataset.spanend||'endDate'));
+}
 function openModal(opts){
   modalSave=opts.onSave;
   modalChange=opts.onChange||null;
   const fields=opts.fields.map(fl=>{
     let inp;
-    if(fl.type==='note')inp='<p class="muted" style="font-size:13px;margin:0;line-height:1.5">'+esc(fl.value||'')+'</p>';
+    if(fl.type==='spanpreview')inp='<div class="span-prev" data-spanpreview="'+(fl.startKey||'date')+'" data-spanend="'+(fl.endKey||'endDate')+'"></div>';
+    else if(fl.type==='note')inp='<p class="muted" style="font-size:13px;margin:0;line-height:1.5">'+esc(fl.value||'')+'</p>';
     else if(fl.type==='rich')inp=richEditor(fl.key,fl.value||'',fl.placeholder);
     else if(fl.type==='textarea')inp='<textarea class="inp" data-k="'+fl.key+'" placeholder="'+esc(fl.placeholder||'')+'">'+esc(fl.value||'')+'</textarea>';
     else if(fl.type==='select')inp='<select class="inp" data-k="'+fl.key+'">'+fl.options.map(o=>'<option value="'+esc(o.v)+'"'+(String(fl.value)===String(o.v)?' selected':'')+'>'+esc(o.l)+'</option>').join('')+'</select>';
@@ -3350,6 +3399,7 @@ function openModal(opts){
   $('#modal-root').innerHTML='<div class="overlay" data-act="modal-bg"><div class="modal'+(opts.wide?' modal-wide':'')+'"><div class="modal-h"><h3>'+esc(opts.title)+'</h3></div><div class="modal-b">'+body+'</div><div class="modal-f"><button class="btn ghost" data-act="modal-cancel">Cancel</button><button class="btn primary" data-act="modal-ok">'+esc(opts.ok||'Save')+'</button></div></div></div>';
   stripAutofill($('#modal-root'));
   applyModalConds();
+  refreshSpanPreview();
   const first=$('#modal-root .inp');if(first)setTimeout(()=>first.focus(),40);
 }
 function closeModal(){$('#modal-root').innerHTML='';modalSave=null;modalChange=null;}
@@ -3366,7 +3416,21 @@ document.addEventListener('change',e=>{
   const f=e.target.closest('#modal-root [data-k]');
   if(!f)return;
   applyModalConds();
+  refreshSpanPreview();
   if(modalChange){try{modalChange(f.dataset.k,f.value);}catch(_){}}
+});
+// tapping a day in the span preview sets the end date; tapping the first day
+// (or earlier) clears it back to a single day
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('#modal-root [data-spanpick]');
+  if(!b)return;
+  const host=b.closest('[data-spanpreview]');
+  const startEl=document.querySelector('#modal-root [data-k="'+(host.dataset.spanpreview||'date')+'"]');
+  const endEl=document.querySelector('#modal-root [data-k="'+(host.dataset.spanend||'endDate')+'"]');
+  if(!endEl)return;
+  const d=b.dataset.spanpick;
+  endEl.value=(startEl&&d<=startEl.value)?'':d;
+  refreshSpanPreview();
 });
 
 /* ---------- TOAST / UNDO ---------- */
@@ -3440,6 +3504,7 @@ const actions={
       fields.push({key:'loc',label:'Location (optional)',value:mt.loc||'',placeholder:'e.g. Dr. Chen — 4th St'});
     }
     if(isEvent)fields.push({key:'endDate',label:'End date (optional)',type:'date',value:mt.endDate||'',half:true});
+    if(isEvent)fields.push({key:'spanprev',label:'',type:'spanpreview'});
     if(!isEvent&&!isAppt)fields.push({key:'link',label:'Meeting link',value:mt.link||'',placeholder:'https://…'});
     openModal({title:'Edit '+label,fields,onSave(v){
       if(!v.title)return;
