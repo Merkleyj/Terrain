@@ -326,7 +326,12 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 .cal-wkcell .cal-foot .cf i{width:7px;height:7px}
 @media(max-width:1100px){.cal-grid.cal-week{grid-template-columns:repeat(2,1fr)}.cal-cell.cal-wkcell,.cal-cell.cal-wkcell:nth-child(-n+4){grid-column:auto}}
 .cal-legend{display:flex;gap:14px;flex-wrap:wrap;margin-left:auto}
-.cal-legend .lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);font-weight:600}
+.cal-legend .lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);font-weight:600;background:none;border:1px solid transparent;border-radius:20px;padding:3px 9px;cursor:pointer;transition:.13s}
+.cal-legend .lg:hover{border-color:var(--line);color:var(--ink)}
+.cal-legend .lg.on{border-color:var(--ink);color:var(--ink);background:var(--surface-2)}
+/* when one source is picked the rest recede, so the board reads as filtered */
+.cal-legend.filtered .lg:not(.on){opacity:.4}
+.cal-legend .lg-clear{color:var(--accent);font-weight:700}
 .cal-legend .lg i{width:9px;height:9px;border-radius:3px;display:inline-block}
 .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
 .cal-dow span{text-align:center;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
@@ -949,7 +954,7 @@ function enabled(id){
 /* ---------- transient ui state ---------- */
 const ui={view:'overview',moreOpen:false,qaOpen:false,qaMode:'main',tv:false,tvClock:null,habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
   calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',macroFoodPage:0,rvOpen:new Set(),rvEdit:null,goalOpen:new Set(),goalShowDone:new Set(),projOpen:new Set(),projShowDone:new Set(),big3Date:todayStr(),focus:null,fTimer:null,skTimer:null,skTick:null,
-  todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all',snaps:null};
+  todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all',snaps:null,calFilter:null};
 
 /* Day- and period-scoped views open on the current day. They used to keep
    whatever date was last used, so the Daily Checklist, Macros and Big 3 would
@@ -1639,10 +1644,17 @@ function dayEvents(date){
 function hasHabitData(date){const l=S().habitLog[date];return !!(l&&Object.keys(l).length);}
 function hasMacroData(date){return (S().macroLog[date]||[]).length>0;}
 
+/* Calendar-only lens. The legend doubles as a filter: tap Workout and the
+   grid, the week cards and a day's detail show workouts alone. dayEvents()
+   itself stays unfiltered — the Overview and TV board read it too. */
+function calEvents(dateStr){
+  const evs=dayEvents(dateStr);
+  return ui.calFilter?evs.filter(e=>e.src===ui.calFilter):evs;
+}
 function calCell(dateStr,inMonth){
   const isToday=dateStr===todayStr();
   const dnum=parseD(dateStr).getDate();
-  const evs=dayEvents(dateStr);
+  const evs=calEvents(dateStr);
   const chips=evs.slice(0,3).map(e=>{const m=CAL_SRC[e.src];return '<span class="cal-ev" style="background:var(--'+m.color+'-bg);color:var(--'+m.color+')'+(e.done?';opacity:.55;text-decoration:line-through':'')+'">'+esc(e.text)+'</span>';}).join('');
   const more=evs.length>3?'<span class="cal-more">+'+(evs.length-3)+' more</span>':'';
   const dots=evs.slice(0,6).map(e=>'<span class="cal-dot" style="background:var(--'+CAL_SRC[e.src].color+')'+(e.done?';opacity:.4':'')+'"></span>').join('');
@@ -1658,7 +1670,7 @@ function calCell(dateStr,inMonth){
     '</button>';
 }
 function calWeekCell(dateStr){
-  const isToday=dateStr===todayStr(),d=parseD(dateStr),evs=dayEvents(dateStr);
+  const isToday=dateStr===todayStr(),d=parseD(dateStr),evs=calEvents(dateStr);
   const MAX=10;
   // Each entry shows its full title (up to two lines) plus what it is and where
   // it belongs — "Project · Blaze & Birch", "Appointment · Dr. Chen" — so the
@@ -1684,7 +1696,9 @@ function calWeekCell(dateStr){
     '</button>';
 }
 function vCalendar(){
-  const legend=Object.keys(CAL_SRC).filter(k=>k==='finance'?(enabled('bills')||enabled('savings')):enabled(CAL_SRC[k].view)).map(k=>'<span class="lg"><i style="background:var(--'+CAL_SRC[k].color+')"></i>'+CAL_SRC[k].label+'</span>').join('');
+  const srcs=Object.keys(CAL_SRC).filter(k=>k==='finance'?(enabled('bills')||enabled('savings')):enabled(CAL_SRC[k].view));
+  const legend=srcs.map(k=>'<button class="lg'+(ui.calFilter===k?' on':'')+'" data-act="cal-filter" data-id="'+k+'" aria-pressed="'+(ui.calFilter===k)+'" title="'+(ui.calFilter===k?'Show everything again':'Show only '+CAL_SRC[k].label)+'"><i style="background:var(--'+CAL_SRC[k].color+')"></i>'+CAL_SRC[k].label+'</button>').join('')+
+    (ui.calFilter?'<button class="lg lg-clear" data-act="cal-filter" data-id="">Show all</button>':'');
   const head='<div class="sect-head"><div class="lead"><h2>Calendar</h2><p>Everything with a date — to-dos, goal targets and project tasks — in one place, colour-coded by source. Tap any day to look closer or add something new.</p></div>'+
     '<div class="actions"><button class="btn primary" data-act="cal-add" data-date="'+todayStr()+'">'+svg(I.plus)+'Add entry</button></div></div>';
   const modes='<div class="cal-modes"><button class="chip'+(ui.calMode==='week'?'':' on')+'" data-act="cal-mode" data-id="month">Month</button><button class="chip'+(ui.calMode==='week'?' on':'')+'" data-act="cal-mode" data-id="week">Week</button></div>';
@@ -1692,7 +1706,7 @@ function vCalendar(){
     const ws=ui.calWeek,wsD=parseD(ws),weD=parseD(addDays(ws,6));
     const title=wsD.getMonth()===weD.getMonth()?MONL[wsD.getMonth()]+' '+wsD.getDate()+'–'+weD.getDate()+', '+weD.getFullYear():MON[wsD.getMonth()]+' '+wsD.getDate()+' – '+MON[weD.getMonth()]+' '+weD.getDate()+', '+weD.getFullYear();
     const wcells=[];for(let i=0;i<7;i++)wcells.push(calWeekCell(addDays(ws,i)));
-    const wtool='<div class="cal-toolbar"><div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous week">'+svg(I.chevL)+'</button><span class="cal-title">'+title+'</span><button class="icon-btn" data-act="cal-next" aria-label="next week">'+svg(I.chevR)+'</button><button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+modes+'<div class="cal-legend">'+legend+'</div></div>';
+    const wtool='<div class="cal-toolbar"><div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous week">'+svg(I.chevL)+'</button><span class="cal-title">'+title+'</span><button class="icon-btn" data-act="cal-next" aria-label="next week">'+svg(I.chevR)+'</button><button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+modes+'<div class="cal-legend'+(ui.calFilter?' filtered':'')+'">'+legend+'</div></div>';
     return head+'<div class="card">'+wtool+'<div class="cal-grid cal-week">'+wcells.join('')+'</div></div>';
   }
   const m=parseD(ui.calMonth), year=m.getFullYear(), month=m.getMonth();
@@ -1704,13 +1718,13 @@ function vCalendar(){
   const cells=[];
   for(let i=0;i<totalCells;i++){const ds=addDays(gridStart,i);cells.push(calCell(ds,parseD(ds).getMonth()===month));}
   const dow=DOW.slice(wsd).concat(DOW.slice(0,wsd)).map(d=>'<span>'+d+'</span>').join('');
-  const toolbar='<div class="cal-toolbar"><div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous month">'+svg(I.chevL)+'</button><span class="cal-title">'+MONL[month]+' '+year+'</span><button class="icon-btn" data-act="cal-next" aria-label="next month">'+svg(I.chevR)+'</button><button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+modes+'<div class="cal-legend">'+legend+'</div></div>';
+  const toolbar='<div class="cal-toolbar"><div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous month">'+svg(I.chevL)+'</button><span class="cal-title">'+MONL[month]+' '+year+'</span><button class="icon-btn" data-act="cal-next" aria-label="next month">'+svg(I.chevR)+'</button><button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+modes+'<div class="cal-legend'+(ui.calFilter?' filtered':'')+'">'+legend+'</div></div>';
   return head+'<div class="card">'+toolbar+'<div class="cal-dow">'+dow+'</div><div class="cal-grid">'+cells.join('')+'</div></div>';
 }
 
 /* day detail modal */
 function openDay(date){
-  const evs=dayEvents(date);
+  const evs=calEvents(date);
   const isToday=date===todayStr();
   const hs=habitStat(date), mt=macroTotals(date), mg=S().macroGoals;
   const calP=pct(mt.cal,mg.cal);
@@ -1733,7 +1747,7 @@ function openDay(date){
     return '<button class="day-ev" data-act="cal-goto" data-view="'+e.view+'"><span class="cal-dot" style="background:var(--'+m.color+')"></span>'+
       '<span class="day-ev-txt'+(e.done?' done':'')+'">'+esc(e.text)+(e.sub?' <span class="faint">· '+esc(e.sub)+'</span>':'')+'</span>'+
       '<span class="tag" style="color:var(--'+m.color+')">'+m.label+'</span></button>';
-  }).join(''):'<p class="faint" style="font-size:13px;margin:2px 0 4px">Nothing scheduled. Add a to-do or project task below.</p>';
+  }).join(''):(ui.calFilter?'<p class="faint" style="font-size:13px;margin:2px 0 4px">No '+CAL_SRC[ui.calFilter].label.toLowerCase()+' entries this day — the calendar is filtered.</p>':'<p class="faint" style="font-size:13px;margin:2px 0 4px">Nothing scheduled. Add a to-do or project task below.</p>');
   const showChecklist=enabled('habits')&&(hasHabitData(date)||isToday);
   const clMini=showChecklist?'<div class="day-mini"><div class="dm-l"><div class="dm-t"><span>Daily checklist</span><span class="mono">'+hs.done+'/'+hs.total+' · '+hs.pct+'%</span></div>'+bar(hs.pct,'var(--accent)')+'</div><button class="btn sm" data-act="cal-open-habits" data-date="'+date+'">Open</button></div>':'';
   const showMacro=enabled('macros')&&(hasMacroData(date)||isToday);
@@ -3396,6 +3410,7 @@ const actions={
   ],onSave(v){if(!v.text)return;S().inbox.push({id:uid(),text:v.text,created:todayStr()});commit();toast('Captured to Inbox');}});},
 
   /* calendar */
+  'cal-filter'(el){const id=el.dataset.id||'';ui.calFilter=(!id||ui.calFilter===id)?null:id;render();},
   'cal-mode'(el){ui.calMode=el.dataset.id==='week'?'week':'month';render();},
   'cal-prev'(){if(ui.calMode==='week')ui.calWeek=addDays(ui.calWeek,-7);else ui.calMonth=shiftMonth(ui.calMonth,-1);render();},
   'cal-next'(){if(ui.calMode==='week')ui.calWeek=addDays(ui.calWeek,7);else ui.calMonth=shiftMonth(ui.calMonth,1);render();},
