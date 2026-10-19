@@ -1591,7 +1591,9 @@ function macroRow(lab,val,goal,color,unit){
 
 /* ---------- VIEW: CALENDAR ---------- */
 const CAL_SRC={meeting:{color:'meet',label:'Meeting',view:'calendar'},appointment:{color:'appt',label:'Appointment',view:'calendar'},event:{color:'event',label:'Event',view:'calendar'},todo:{color:'stone',label:'To-Do',view:'todo'},goal:{color:'sage',label:'Goal',view:'goals'},project:{color:'clay',label:'Project',view:'projects'},workout:{color:'plum',label:'Workout',view:'workouts'},run:{color:'wheat',label:'Run',view:'running'},finance:{color:'pine',label:'Finance',view:'bills'}};
-const CAL_ORDER={appointment:-1,meeting:-1,todo:0,goal:1,project:2,workout:3,run:4,finance:5};
+const CAL_ORDER={appointment:-1,meeting:-1,event:-1,todo:0,goal:1,project:2,workout:3,run:4,finance:5};
+// An end date only counts when it is an event and actually later than the start.
+function spanEnd(mt){return (mt.kind==='event'&&mt.endDate&&mt.endDate>mt.date)?mt.endDate:'';}
 function fmt12(t){const m=/^(\d{1,2}):(\d{2})$/.exec(t||'');if(!m)return t||'';let h=+m[1];const ap=h<12?'AM':'PM';h=h%12||12;return h+':'+m[2]+' '+ap;}
 function dayEvents(date){
   const out=[];
@@ -1630,11 +1632,16 @@ function dayEvents(date){
   // meetings[] holds meetings, plain events (kind:'event') and appointments
   // (kind:'appointment') — anything anchored to a time of day rather than a task.
   S().meetings.forEach(mt=>{
-    if(mt.date!==date)return;
     const kind=(mt.kind==='event'||mt.kind==='appointment')?mt.kind:'meeting';
-    // An appointment can run to an end time: "2:00 PM – 3:00 PM · Dentist".
-    const when=mt.time?fmt12(mt.time)+(mt.end?' – '+fmt12(mt.end):'')+' · ':'';
-    out.push({src:kind,id:mt.id,at:mt.time||'',text:when+mt.title,sub:mt.loc||'',done:false,view:'calendar',link:mt.link||''});
+    // An event can run across days (a trip, a conference). It then shows on
+    // every day it covers, counted off as "Day 2 of 5".
+    const endD=spanEnd(mt);
+    if(endD?(date<mt.date||date>endD):mt.date!==date)return;
+    const first=date===mt.date;
+    // A start time belongs to the first day only; later days are just "in it".
+    const when=(mt.time&&(!endD||first))?fmt12(mt.time)+(mt.end?' – '+fmt12(mt.end):'')+' · ':'';
+    const sub=endD?('Day '+(diffDays(date,mt.date)+1)+' of '+(diffDays(endD,mt.date)+1)+(mt.loc?' · '+mt.loc:'')):(mt.loc||'');
+    out.push({src:kind,id:mt.id,at:(endD&&!first)?'':(mt.time||''),text:when+mt.title,sub:sub,done:false,view:'calendar',link:mt.link||''});
   });
   out.forEach(e=>{if(!e.view)e.view=CAL_SRC[e.src].view;});
   // Same rank means both are anchored to a clock (appointments, meetings) —
@@ -1734,7 +1741,7 @@ function openDay(date){
         '<span class="day-ev-txt">'+esc(e.text)+(e.sub?' <span class="faint">· '+esc(e.sub)+'</span>':'')+'</span>'+
         (e.link?'<a class="tag" href="'+esc(e.link)+'" target="_blank" rel="noopener noreferrer" style="color:var(--'+m.color+');text-decoration:underline">Join</a>':'<span class="tag" style="color:var(--'+m.color+')">'+m.label+'</span>')+
         '<button class="icon-btn" data-act="meet-edit" data-id="'+e.id+'" aria-label="edit">'+svg(I.edit)+'</button>'+
-        '<button class="icon-btn del" data-act="meet-del" data-id="'+e.id+'" style="margin-left:2px" aria-label="delete">'+svg(I.trash)+'</button></div>';
+        '<button class="icon-btn del" data-act="meet-del" data-id="'+e.id+'" data-date="'+date+'" style="margin-left:2px" aria-label="delete">'+svg(I.trash)+'</button></div>';
     }
     // Items with a `del` action (scheduled workouts, planned/logged runs) get a
     // trash button so they can be removed straight from the calendar.
@@ -1790,11 +1797,12 @@ function openAddEntry(date){
   // An appointment is somewhere you go for a set stretch, so it takes an end
   // time and a place where a meeting takes a link.
   fields.push({key:'end',label:'Until (optional)',type:'time',half:true,showWhen:{key:'type',vals:['appointment']}});
+  fields.push({key:'endDate',label:'End date (optional)',type:'date',half:true,showWhen:{key:'type',vals:['event']}});
   fields.push({key:'loc',label:'Location (optional)',placeholder:'e.g. Dr. Chen — 4th St',showWhen:{key:'type',vals:['appointment']}});
   fields.push({key:'link',label:'Meeting link',placeholder:'https://…',half:true,showWhen:{key:'type',vals:['meeting']}});
   openModal({title:'Add to calendar',ok:'Add',fields,onSave(v){
     const dt=v.date||date;
-    if(v.type==='meeting'||v.type==='event'||v.type==='appointment'){if(!v.text)return;S().meetings.push({id:uid(),date:dt,title:v.text,time:v.time||'',end:v.type==='appointment'?(v.end||''):'',loc:v.type==='appointment'?(v.loc||'').trim():'',link:(v.type==='meeting'&&v.link)?normUrl(v.link):'',kind:v.type});}
+    if(v.type==='meeting'||v.type==='event'||v.type==='appointment'){if(!v.text)return;S().meetings.push({id:uid(),date:dt,title:v.text,time:v.time||'',end:v.type==='appointment'?(v.end||''):'',endDate:(v.type==='event'&&v.endDate&&v.endDate>dt)?v.endDate:'',loc:v.type==='appointment'?(v.loc||'').trim():'',link:(v.type==='meeting'&&v.link)?normUrl(v.link):'',kind:v.type});}
     else if(v.type==='workout'&&wks.length){const w=S().workouts.find(x=>x.id===v.wk)||wks[0];S().workoutSched.push({id:uid(),date:dt,workoutId:w.id});}
     else if(v.type==='run'){const mi=parseFloat(v.mi)||0;const label=(v.text||'Run').trim()||'Run';S().runPlan=S().runPlan||[];S().runPlan.push({id:uid(),date:dt,label:label+(mi?' · '+(Math.round(mi*10)/10)+' mi':''),miles:mi,kind:'easy'});}
     else if(v.type==='goal'){if(!v.text)return;S().goals.push({id:uid(),title:v.text,target:dt,why:'',steps:[],area:v.area||'',created:todayStr()});}
@@ -3417,7 +3425,7 @@ const actions={
   'cal-today'(){ui.calMonth=firstOfMonth(todayStr());ui.calWeek=weekSun(todayStr());render();},
   'cal-day'(el){openDay(el.dataset.date);},
   'cal-add'(el){openAddEntry(el.dataset.date||todayStr());},
-  'meet-del'(el){const i=S().meetings.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const rm=S().meetings[i];S().meetings.splice(i,1);commit();openDay(rm.date);toast((rm.kind==='event'?'Event':rm.kind==='appointment'?'Appointment':'Meeting')+' deleted',()=>{S().meetings.splice(Math.min(i,S().meetings.length),0,rm);commit();openDay(rm.date);});},
+  'meet-del'(el){const i=S().meetings.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const rm=S().meetings[i];S().meetings.splice(i,1);const back=el.dataset.date||rm.date;commit();openDay(back);toast((rm.kind==='event'?'Event':rm.kind==='appointment'?'Appointment':'Meeting')+' deleted',()=>{S().meetings.splice(Math.min(i,S().meetings.length),0,rm);commit();openDay(back);});},
   'meet-edit'(el){
     const mt=S().meetings.find(x=>x.id===el.dataset.id);if(!mt)return;
     const isAppt=mt.kind==='appointment', isEvent=mt.kind==='event';
@@ -3431,12 +3439,15 @@ const actions={
       fields.push({key:'end',label:'Until (optional)',type:'time',value:mt.end||'',half:true});
       fields.push({key:'loc',label:'Location (optional)',value:mt.loc||'',placeholder:'e.g. Dr. Chen — 4th St'});
     }
+    if(isEvent)fields.push({key:'endDate',label:'End date (optional)',type:'date',value:mt.endDate||'',half:true});
     if(!isEvent&&!isAppt)fields.push({key:'link',label:'Meeting link',value:mt.link||'',placeholder:'https://…'});
     openModal({title:'Edit '+label,fields,onSave(v){
       if(!v.title)return;
       const old=mt.date;
-      Object.assign(mt,{title:v.title,date:v.date||mt.date,time:v.time||'',
+      const nd=v.date||mt.date;
+      Object.assign(mt,{title:v.title,date:nd,time:v.time||'',
         end:isAppt?(v.end||''):'',loc:isAppt?(v.loc||'').trim():'',
+        endDate:(isEvent&&v.endDate&&v.endDate>nd)?v.endDate:'',
         link:(isEvent||isAppt)?'':(v.link?normUrl(v.link):'')});
       commit();openDay(mt.date!==old?mt.date:old);
     }});
