@@ -36,6 +36,7 @@ document.querySelector('meta[name="theme-color"]').setAttribute("content","#1314
   --meet:#5B7080; --meet-bg:#E1E7EB;
   --event:#8A7B5B; --event-bg:#EDE7DA;
   --appt:#6B6F9E; --appt-bg:#E5E5F0;
+  --pto:#3E8E6E; --pto-bg:#DEEFE7;
   --veil:rgba(244,240,232,.86); --veil-2:rgba(252,250,245,.94);
   --hero-grad:linear-gradient(135deg,#71805B 0%,#5E6B4A 62%,#4F5A3E 100%);
   --shadow:0 1px 2px rgba(44,42,36,.04), 0 8px 24px -12px rgba(44,42,36,.14);
@@ -64,6 +65,7 @@ document.querySelector('meta[name="theme-color"]').setAttribute("content","#1314
   --meet:#86A0B2; --meet-bg:#2C3137;
   --event:#BCA87C; --event-bg:#35322E;
   --appt:#9BA0D0; --appt-bg:#2F313B;
+  --pto:#74BFA0; --pto-bg:#26332E;
   --veil:rgba(19,20,22,.86); --veil-2:rgba(27,28,31,.94);
   --hero-grad:linear-gradient(135deg,#4C573D 0%,#404A34 62%,#353D2B 100%);
   --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
@@ -345,6 +347,8 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 /* when one source is picked the rest recede, so the board reads as filtered */
 .cal-legend.filtered .lg:not(.on){opacity:.4}
 .cal-legend .lg-clear{color:var(--accent);font-weight:700}
+/* kept in the layout when unused so the row never shifts */
+.cal-legend .lg-clear.is-off{visibility:hidden;pointer-events:none}
 .cal-legend .lg i{width:9px;height:9px;border-radius:3px;display:inline-block}
 .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
 .cal-dow span{text-align:center;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
@@ -558,6 +562,7 @@ body.mobmore-lock{overflow:hidden}
   --meet:#86A0B2; --meet-bg:#2C3137;
   --event:#BCA87C; --event-bg:#35322E;
   --appt:#9BA0D0; --appt-bg:#2F313B;
+  --pto:#74BFA0; --pto-bg:#26332E;
   --shadow-sm:0 1px 2px rgba(0,0,0,.45);
   --hero-grad:linear-gradient(135deg,#4C573D 0%,#404A34 62%,#353D2B 100%);
   position:fixed;inset:0;z-index:2000;display:none;flex-direction:column;gap:2vh;background:var(--paper);color:var(--ink);font-family:var(--sans);padding:2.2vh 2.2vw;overflow:hidden}
@@ -967,7 +972,7 @@ function enabled(id){
 /* ---------- transient ui state ---------- */
 const ui={view:'overview',moreOpen:false,qaOpen:false,qaMode:'main',tv:false,tvClock:null,habitDate:todayStr(),macroDate:todayStr(),jrnlDate:todayStr(),
   calMonth:firstOfMonth(todayStr()),calMode:'month',calWeek:weekSun(todayStr()),planPreview:null,session:null,budgetMonth:firstOfMonth(todayStr()),peekDone:new Set(),reviewWeek:null,areaOpen:null,nextF:{area:'',energy:'',est:'',ctx:''},macroSearch:'',macroFoodPage:0,rvOpen:new Set(),rvEdit:null,goalOpen:new Set(),goalShowDone:new Set(),projOpen:new Set(),projShowDone:new Set(),big3Date:todayStr(),focus:null,fTimer:null,skTimer:null,skTick:null,
-  todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all',snaps:null,calFilter:null};
+  todoFilter:'active',bucketFilter:'all',readFilter:'all',jrnlFilter:'all',snaps:null,calFilter:[]};
 
 /* Day- and period-scoped views open on the current day. They used to keep
    whatever date was last used, so the Daily Checklist, Macros and Big 3 would
@@ -1603,10 +1608,10 @@ function macroRow(lab,val,goal,color,unit){
 }
 
 /* ---------- VIEW: CALENDAR ---------- */
-const CAL_SRC={meeting:{color:'meet',label:'Meeting',view:'calendar'},appointment:{color:'appt',label:'Appointment',view:'calendar'},event:{color:'event',label:'Event',view:'calendar'},todo:{color:'stone',label:'To-Do',view:'todo'},goal:{color:'sage',label:'Goal',view:'goals'},project:{color:'clay',label:'Project',view:'projects'},workout:{color:'plum',label:'Workout',view:'workouts'},run:{color:'wheat',label:'Run',view:'running'},finance:{color:'pine',label:'Finance',view:'bills'}};
-const CAL_ORDER={appointment:-1,meeting:-1,event:-1,todo:0,goal:1,project:2,workout:3,run:4,finance:5};
+const CAL_SRC={meeting:{color:'meet',label:'Meeting',view:'calendar'},appointment:{color:'appt',label:'Appointment',view:'calendar'},pto:{color:'pto',label:'PTO',view:'calendar'},event:{color:'event',label:'Event',view:'calendar'},todo:{color:'stone',label:'To-Do',view:'todo'},goal:{color:'sage',label:'Goal',view:'goals'},project:{color:'clay',label:'Project',view:'projects'},workout:{color:'plum',label:'Workout',view:'workouts'},run:{color:'wheat',label:'Run',view:'running'},finance:{color:'pine',label:'Finance',view:'bills'}};
+const CAL_ORDER={pto:-2,appointment:-1,meeting:-1,event:-1,todo:0,goal:1,project:2,workout:3,run:4,finance:5};
 // An end date only counts when it is an event and actually later than the start.
-function spanEnd(mt){return (mt.kind==='event'&&mt.endDate&&mt.endDate>mt.date)?mt.endDate:'';}
+function spanEnd(mt){return ((mt.kind==='event'||mt.kind==='pto')&&mt.endDate&&mt.endDate>mt.date)?mt.endDate:'';}
 function fmt12(t){const m=/^(\d{1,2}):(\d{2})$/.exec(t||'');if(!m)return t||'';let h=+m[1];const ap=h<12?'AM':'PM';h=h%12||12;return h+':'+m[2]+' '+ap;}
 function dayEvents(date){
   const out=[];
@@ -1645,7 +1650,7 @@ function dayEvents(date){
   // meetings[] holds meetings, plain events (kind:'event') and appointments
   // (kind:'appointment') — anything anchored to a time of day rather than a task.
   S().meetings.forEach(mt=>{
-    const kind=(mt.kind==='event'||mt.kind==='appointment')?mt.kind:'meeting';
+    const kind=(mt.kind==='event'||mt.kind==='appointment'||mt.kind==='pto')?mt.kind:'meeting';
     // An event can run across days (a trip, a conference). It then shows on
     // every day it covers, counted off as "Day 2 of 5".
     const endD=spanEnd(mt);
@@ -1669,7 +1674,7 @@ function hasMacroData(date){return (S().macroLog[date]||[]).length>0;}
    itself stays unfiltered — the Overview and TV board read it too. */
 function calEvents(dateStr){
   const evs=dayEvents(dateStr);
-  return ui.calFilter?evs.filter(e=>e.src===ui.calFilter):evs;
+  return ui.calFilter.length?evs.filter(e=>ui.calFilter.indexOf(e.src)>=0):evs;
 }
 function calCell(dateStr,inMonth){
   const isToday=dateStr===todayStr();
@@ -1717,8 +1722,13 @@ function calWeekCell(dateStr){
 }
 function vCalendar(){
   const srcs=Object.keys(CAL_SRC).filter(k=>k==='finance'?(enabled('bills')||enabled('savings')):enabled(CAL_SRC[k].view));
-  const legend=srcs.map(k=>'<button class="lg'+(ui.calFilter===k?' on':'')+'" data-act="cal-filter" data-id="'+k+'" aria-pressed="'+(ui.calFilter===k)+'" title="'+(ui.calFilter===k?'Show everything again':'Show only '+CAL_SRC[k].label)+'"><i style="background:var(--'+CAL_SRC[k].color+')"></i>'+CAL_SRC[k].label+'</button>').join('')+
-    (ui.calFilter?'<button class="lg lg-clear" data-act="cal-filter" data-id="">Show all</button>':'');
+  /* Multi-select: each colour toggles on its own, so Event + PTO can show
+     together. The clear control keeps a reserved slot at the end whether or
+     not anything is picked — appearing and disappearing used to shove the
+     whole row sideways. */
+  const on=k=>ui.calFilter.indexOf(k)>=0;
+  const legend=srcs.map(k=>'<button class="lg'+(on(k)?' on':'')+'" data-act="cal-filter" data-id="'+k+'" aria-pressed="'+on(k)+'" title="'+(on(k)?'Stop showing '+CAL_SRC[k].label:'Add '+CAL_SRC[k].label+' to the filter')+'"><i style="background:var(--'+CAL_SRC[k].color+')"></i>'+CAL_SRC[k].label+'</button>').join('')+
+    '<button class="lg lg-clear'+(ui.calFilter.length?'':' is-off')+'" data-act="cal-filter-clear"'+(ui.calFilter.length?'':' tabindex="-1" aria-hidden="true"')+'>Show all</button>';
   const head='<div class="sect-head"><div class="lead"><h2>Calendar</h2><p>Everything with a date — to-dos, goal targets and project tasks — in one place, colour-coded by source. Tap any day to look closer or add something new.</p></div>'+
     '<div class="actions"><button class="btn primary" data-act="cal-add" data-date="'+todayStr()+'">'+svg(I.plus)+'Add entry</button></div></div>';
   const modes='<div class="cal-modes"><button class="chip'+(ui.calMode==='week'?'':' on')+'" data-act="cal-mode" data-id="month">Month</button><button class="chip'+(ui.calMode==='week'?' on':'')+'" data-act="cal-mode" data-id="week">Week</button></div>';
@@ -1726,7 +1736,7 @@ function vCalendar(){
     const ws=ui.calWeek,wsD=parseD(ws),weD=parseD(addDays(ws,6));
     const title=wsD.getMonth()===weD.getMonth()?MONL[wsD.getMonth()]+' '+wsD.getDate()+'–'+weD.getDate()+', '+weD.getFullYear():MON[wsD.getMonth()]+' '+wsD.getDate()+' – '+MON[weD.getMonth()]+' '+weD.getDate()+', '+weD.getFullYear();
     const wcells=[];for(let i=0;i<7;i++)wcells.push(calWeekCell(addDays(ws,i)));
-    const wtool='<div class="cal-toolbar"><div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous week">'+svg(I.chevL)+'</button><span class="cal-title">'+title+'</span><button class="icon-btn" data-act="cal-next" aria-label="next week">'+svg(I.chevR)+'</button><button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+modes+'<div class="cal-legend'+(ui.calFilter?' filtered':'')+'">'+legend+'</div></div>';
+    const wtool='<div class="cal-toolbar"><div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous week">'+svg(I.chevL)+'</button><span class="cal-title">'+title+'</span><button class="icon-btn" data-act="cal-next" aria-label="next week">'+svg(I.chevR)+'</button><button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+modes+'<div class="cal-legend'+(ui.calFilter.length?' filtered':'')+'">'+legend+'</div></div>';
     return head+'<div class="card">'+wtool+'<div class="cal-grid cal-week">'+wcells.join('')+'</div></div>';
   }
   const m=parseD(ui.calMonth), year=m.getFullYear(), month=m.getMonth();
@@ -1738,7 +1748,7 @@ function vCalendar(){
   const cells=[];
   for(let i=0;i<totalCells;i++){const ds=addDays(gridStart,i);cells.push(calCell(ds,parseD(ds).getMonth()===month));}
   const dow=DOW.slice(wsd).concat(DOW.slice(0,wsd)).map(d=>'<span>'+d+'</span>').join('');
-  const toolbar='<div class="cal-toolbar"><div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous month">'+svg(I.chevL)+'</button><span class="cal-title">'+MONL[month]+' '+year+'</span><button class="icon-btn" data-act="cal-next" aria-label="next month">'+svg(I.chevR)+'</button><button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+modes+'<div class="cal-legend'+(ui.calFilter?' filtered':'')+'">'+legend+'</div></div>';
+  const toolbar='<div class="cal-toolbar"><div class="datenav"><button class="icon-btn" data-act="cal-prev" aria-label="previous month">'+svg(I.chevL)+'</button><span class="cal-title">'+MONL[month]+' '+year+'</span><button class="icon-btn" data-act="cal-next" aria-label="next month">'+svg(I.chevR)+'</button><button class="btn sm" data-act="cal-today" style="margin-left:4px">Today</button></div>'+modes+'<div class="cal-legend'+(ui.calFilter.length?' filtered':'')+'">'+legend+'</div></div>';
   return head+'<div class="card">'+toolbar+'<div class="cal-dow">'+dow+'</div><div class="cal-grid">'+cells.join('')+'</div></div>';
 }
 
@@ -1767,7 +1777,7 @@ function openDay(date){
     return '<button class="day-ev" data-act="cal-goto" data-view="'+e.view+'"><span class="cal-dot" style="background:var(--'+m.color+')"></span>'+
       '<span class="day-ev-txt'+(e.done?' done':'')+'">'+esc(e.text)+(e.sub?' <span class="faint">· '+esc(e.sub)+'</span>':'')+'</span>'+
       '<span class="tag" style="color:var(--'+m.color+')">'+m.label+'</span></button>';
-  }).join(''):(ui.calFilter?'<p class="faint" style="font-size:13px;margin:2px 0 4px">No '+CAL_SRC[ui.calFilter].label.toLowerCase()+' entries this day — the calendar is filtered.</p>':'<p class="faint" style="font-size:13px;margin:2px 0 4px">Nothing scheduled. Add a to-do or project task below.</p>');
+  }).join(''):(ui.calFilter.length?'<p class="faint" style="font-size:13px;margin:2px 0 4px">Nothing matching '+ui.calFilter.map(k=>CAL_SRC[k].label).join(', ')+' this day — the calendar is filtered.</p>':'<p class="faint" style="font-size:13px;margin:2px 0 4px">Nothing scheduled. Add a to-do or project task below.</p>');
   const showChecklist=enabled('habits')&&(hasHabitData(date)||isToday);
   const clMini=showChecklist?'<div class="day-mini"><div class="dm-l"><div class="dm-t"><span>Daily checklist</span><span class="mono">'+hs.done+'/'+hs.total+' · '+hs.pct+'%</span></div>'+bar(hs.pct,'var(--accent)')+'</div><button class="btn sm" data-act="cal-open-habits" data-date="'+date+'">Open</button></div>':'';
   const showMacro=enabled('macros')&&(hasMacroData(date)||isToday);
@@ -1793,11 +1803,12 @@ function openAddEntry(date){
   if(enabled('running'))typeOpts.push({v:'run',l:'Run'});
   if(enabled('goals'))typeOpts.push({v:'goal',l:'Goal (target date)'});
   typeOpts.push({v:'appointment',l:'Appointment'});
+  typeOpts.push({v:'pto',l:'PTO'});
   typeOpts.push({v:'event',l:'Event'});
   typeOpts.push({v:'meeting',l:'Meeting'});
   if(!typeOpts.length){toast('Turn on To-Do, Projects or Workouts in Settings first');return;}
   const fields=[
-    {key:'text',label:'Title',placeholder:'What\u2019s happening?',showWhen:{key:'type',vals:['todo','project','meeting','event','appointment','run','goal']}},
+    {key:'text',label:'Title',placeholder:'What\u2019s happening?',showWhen:{key:'type',vals:['todo','project','meeting','event','appointment','pto','run','goal']}},
     {key:'type',label:'Type',type:'select',value:typeOpts[0].v,options:typeOpts,half:true},
     {key:'date',label:'Date',type:'date',value:date,half:true}
   ];
@@ -1810,13 +1821,16 @@ function openAddEntry(date){
   // An appointment is somewhere you go for a set stretch, so it takes an end
   // time and a place where a meeting takes a link.
   fields.push({key:'end',label:'Until (optional)',type:'time',half:true,showWhen:{key:'type',vals:['appointment']}});
-  fields.push({key:'endDate',label:'End date (optional)',type:'date',half:true,showWhen:{key:'type',vals:['event']}});
-  fields.push({key:'spanprev',label:'',type:'spanpreview',showWhen:{key:'type',vals:['event']}});
+  fields.push({key:'endDate',label:'End date (optional)',type:'date',half:true,showWhen:{key:'type',vals:['event','pto']}});
+  fields.push({key:'spanprev',label:'',type:'spanpreview',showWhen:{key:'type',vals:['event','pto']}});
   fields.push({key:'loc',label:'Location (optional)',placeholder:'e.g. Dr. Chen — 4th St',showWhen:{key:'type',vals:['appointment']}});
   fields.push({key:'link',label:'Meeting link',placeholder:'https://…',half:true,showWhen:{key:'type',vals:['meeting']}});
   openModal({title:'Add to calendar',ok:'Add',fields,onSave(v){
     const dt=v.date||date;
-    if(v.type==='meeting'||v.type==='event'||v.type==='appointment'){if(!v.text)return;S().meetings.push({id:uid(),date:dt,title:v.text,time:v.time||'',end:v.type==='appointment'?(v.end||''):'',endDate:(v.type==='event'&&v.endDate&&v.endDate>dt)?v.endDate:'',loc:v.type==='appointment'?(v.loc||'').trim():'',link:(v.type==='meeting'&&v.link)?normUrl(v.link):'',kind:v.type});}
+    if(v.type==='meeting'||v.type==='event'||v.type==='appointment'||v.type==='pto'){
+      // PTO rarely needs a name — "PTO" on the day is the whole point.
+      if(v.type==='pto'&&!v.text)v.text='PTO';
+      if(!v.text)return;S().meetings.push({id:uid(),date:dt,title:v.text,time:v.time||'',end:v.type==='appointment'?(v.end||''):'',endDate:((v.type==='event'||v.type==='pto')&&v.endDate&&v.endDate>dt)?v.endDate:'',loc:v.type==='appointment'?(v.loc||'').trim():'',link:(v.type==='meeting'&&v.link)?normUrl(v.link):'',kind:v.type});}
     else if(v.type==='workout'&&wks.length){const w=S().workouts.find(x=>x.id===v.wk)||wks[0];S().workoutSched.push({id:uid(),date:dt,workoutId:w.id});}
     else if(v.type==='run'){const mi=parseFloat(v.mi)||0;const label=(v.text||'Run').trim()||'Run';S().runPlan=S().runPlan||[];S().runPlan.push({id:uid(),date:dt,label:label+(mi?' · '+(Math.round(mi*10)/10)+' mi':''),miles:mi,kind:'easy'});}
     else if(v.type==='goal'){if(!v.text)return;S().goals.push({id:uid(),title:v.text,target:dt,why:'',steps:[],area:v.area||'',created:todayStr()});}
@@ -3482,38 +3496,45 @@ const actions={
   ],onSave(v){if(!v.text)return;S().inbox.push({id:uid(),text:v.text,created:todayStr()});commit();toast('Captured to Inbox');}});},
 
   /* calendar */
-  'cal-filter'(el){const id=el.dataset.id||'';ui.calFilter=(!id||ui.calFilter===id)?null:id;render();},
+  'cal-filter'(el){
+    const id=el.dataset.id;if(!id)return;
+    const i=ui.calFilter.indexOf(id);
+    if(i>=0)ui.calFilter.splice(i,1);else ui.calFilter.push(id);
+    render();
+  },
+  'cal-filter-clear'(){ui.calFilter=[];render();},
   'cal-mode'(el){ui.calMode=el.dataset.id==='week'?'week':'month';render();},
   'cal-prev'(){if(ui.calMode==='week')ui.calWeek=addDays(ui.calWeek,-7);else ui.calMonth=shiftMonth(ui.calMonth,-1);render();},
   'cal-next'(){if(ui.calMode==='week')ui.calWeek=addDays(ui.calWeek,7);else ui.calMonth=shiftMonth(ui.calMonth,1);render();},
   'cal-today'(){ui.calMonth=firstOfMonth(todayStr());ui.calWeek=weekSun(todayStr());render();},
   'cal-day'(el){openDay(el.dataset.date);},
   'cal-add'(el){openAddEntry(el.dataset.date||todayStr());},
-  'meet-del'(el){const i=S().meetings.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const rm=S().meetings[i];S().meetings.splice(i,1);const back=el.dataset.date||rm.date;commit();openDay(back);toast((rm.kind==='event'?'Event':rm.kind==='appointment'?'Appointment':'Meeting')+' deleted',()=>{S().meetings.splice(Math.min(i,S().meetings.length),0,rm);commit();openDay(back);});},
+  'meet-del'(el){const i=S().meetings.findIndex(x=>x.id===el.dataset.id);if(i<0)return;const rm=S().meetings[i];S().meetings.splice(i,1);const back=el.dataset.date||rm.date;commit();openDay(back);toast((rm.kind==='event'?'Event':rm.kind==='appointment'?'Appointment':rm.kind==='pto'?'PTO':'Meeting')+' deleted',()=>{S().meetings.splice(Math.min(i,S().meetings.length),0,rm);commit();openDay(back);});},
   'meet-edit'(el){
     const mt=S().meetings.find(x=>x.id===el.dataset.id);if(!mt)return;
-    const isAppt=mt.kind==='appointment', isEvent=mt.kind==='event';
-    const label=isAppt?'appointment':(isEvent?'event':'meeting');
+    const isAppt=mt.kind==='appointment', isEvent=mt.kind==='event', isPto=mt.kind==='pto';
+    const isSpan=isEvent||isPto;
+    const label=isAppt?'appointment':isPto?'PTO':(isEvent?'event':'meeting');
     const fields=[
       {key:'title',label:'Title',value:mt.title},
       {key:'date',label:'Date',type:'date',value:mt.date,half:true},
-      {key:'time',label:'Time (optional)',type:'time',value:mt.time||'',half:true}
-    ];
+      {key:'time',label:'Time (optional)',type:'time',value:mt.time||'',half:true,skip:isPto}
+    ].filter(f=>!f.skip);
     if(isAppt){
       fields.push({key:'end',label:'Until (optional)',type:'time',value:mt.end||'',half:true});
       fields.push({key:'loc',label:'Location (optional)',value:mt.loc||'',placeholder:'e.g. Dr. Chen — 4th St'});
     }
-    if(isEvent)fields.push({key:'endDate',label:'End date (optional)',type:'date',value:mt.endDate||'',half:true});
-    if(isEvent)fields.push({key:'spanprev',label:'',type:'spanpreview'});
-    if(!isEvent&&!isAppt)fields.push({key:'link',label:'Meeting link',value:mt.link||'',placeholder:'https://…'});
+    if(isSpan)fields.push({key:'endDate',label:'End date (optional)',type:'date',value:mt.endDate||'',half:true});
+    if(isSpan)fields.push({key:'spanprev',label:'',type:'spanpreview'});
+    if(!isSpan&&!isAppt)fields.push({key:'link',label:'Meeting link',value:mt.link||'',placeholder:'https://…'});
     openModal({title:'Edit '+label,fields,onSave(v){
       if(!v.title)return;
       const old=mt.date;
       const nd=v.date||mt.date;
       Object.assign(mt,{title:v.title,date:nd,time:v.time||'',
         end:isAppt?(v.end||''):'',loc:isAppt?(v.loc||'').trim():'',
-        endDate:(isEvent&&v.endDate&&v.endDate>nd)?v.endDate:'',
-        link:(isEvent||isAppt)?'':(v.link?normUrl(v.link):'')});
+        endDate:(isSpan&&v.endDate&&v.endDate>nd)?v.endDate:'',
+        link:(isSpan||isAppt)?'':(v.link?normUrl(v.link):'')});
       commit();openDay(mt.date!==old?mt.date:old);
     }});
   },
